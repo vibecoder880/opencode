@@ -19,9 +19,9 @@ This plan covers the first two phases only (per user decision):
 
 ## Branch strategy (user decision)
 
-- Work on a **feature branch** (per AGENTS.md: ≤3 words, no `feat/` prefix) and open a **PR into `dev`**.
-- CI (`test.yml`, `typecheck.yml`) triggers on pushes to `dev` and on PRs — so the PR itself is the CI gate.
-- `dev` branch does not exist yet on origin (only `main`). It must be created from `main` before PRs can target it.
+- Work on a **feature branch** (per AGENTS.md: ≤3 words, no `feat/` prefix) and open a **PR into `main`** (updated 2026-08-14: user asked to target `main` directly).
+- CI (`test.yml`, `typecheck.yml`) triggers on pushes to the base branch and on PRs — so the PR itself is the CI gate.
+- NOTE: `origin/main` is an orphan root (`2b5f70e`) unrelated to local history (`1862432`, which `dev` uses). Feature branches must be rebased onto `origin/main` for GitHub to accept PRs.
 
 ## Findings from audit (Phase 0)
 
@@ -38,9 +38,9 @@ This plan covers the first two phases only (per user decision):
 ## Deliverables
 
 ### Phase 0
-- [ ] `UPSTREAM.md` at repo root — upstream repo URL, fork divergence notes, custom-patch policy.
-- [ ] `dev` branch created from `main` and pushed to origin (so PRs can target it).
-- [ ] First feature branch pushed + a trivial PR into `dev` runs CI green (baseline).
+- [x] `UPSTREAM.md` at repo root — upstream repo URL, fork divergence notes, custom-patch policy.
+- [ ] `dev` branch created from `main` and pushed to origin (so PRs can target it). — note: superseded; PRs now target `main` directly.
+- [ ] First feature branch pushed + a trivial PR into `main` runs CI green (baseline).
 
 ### Phase 1 — `packages/opencode/src/ockit/`
 - [ ] `types.ts` — Effect Schema for Kit/Skill/Agent/Workflow/Hook/Artifact/Checkpoint/Ownership.
@@ -65,14 +65,15 @@ UPSTREAM.md
 
 ## Verification (CI-first)
 
-1. Feature branch → push → open PR into `dev`.
+1. Feature branch → push → open PR into `main`.
 2. GitHub Actions `test.yml` runs `bun turbo test` (unit tests incl. new `ockit` tests) on the PR.
 3. `typecheck.yml` runs `bun typecheck`.
-4. Only merge PR (to `dev`) when both are green.
+4. Only merge PR (to `main`) when both are green.
 5. Commit messages: English, conventional format, email `cavangcute478@gmail.com`.
 
 ## Risks / rollback
 
-- `dev` branch creation is a one-time repo setup; safe (branches off current `main`).
+- `origin/main` is an orphan root unrelated to local history; rebasing feature branches onto `origin/main` is required for GitHub to accept PRs.
+- CI is currently blocked: every test/typecheck workflow uses `blacksmith-*` self-hosted runner labels that are not registered on this standalone repo. Unblock requires registering runners (or switching CI to GitHub-hosted runners).
 - Adding `oc_kit` to `ConfigV1.Info` touches the shared config schema — keep it strictly optional so existing projects are unaffected (plan §40 compatibility).
 - No runtime wiring yet (no workflow engine / hooks) — no risk to existing OpenCode behavior in this phase.

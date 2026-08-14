@@ -29,4 +29,4 @@ repository, per the OC Kit integration plan (Phase 0: upstream freeze & audit).
 
 - Conventional commit style: `type(scope): summary`.
 - Commit author email: `cavangcute478@gmail.com`.
-- Verified via GitHub Actions CI (`test.yml`, `typecheck.yml`) on PRs into `dev`.
+- Verified via GitHub Actions CI (`test.yml`, `typecheck.yml`) on PRs into `main`.

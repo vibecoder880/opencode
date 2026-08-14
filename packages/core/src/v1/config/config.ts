@@ -187,6 +187,26 @@ export const Info = Schema.Struct({
       }),
     }),
   ),
+  oc_kit: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.optional(Schema.Boolean).annotate({ description: "Enable OC Kit" }),
+      default_kit: Schema.optional(Schema.String).annotate({ description: "Kit used by default" }),
+      default_mode: Schema.optional(Schema.Literals(["fast", "normal", "deep", "autonomous"])).annotate({
+        description: "Default OC Kit workflow mode",
+      }),
+      auto_workflow: Schema.optional(Schema.Boolean).annotate({
+        description: "Auto-select a workflow from a task description",
+      }),
+      auto_review: Schema.optional(Schema.Boolean).annotate({ description: "Review after implementation" }),
+      auto_test: Schema.optional(Schema.Boolean).annotate({ description: "Test after implementation" }),
+      checkpoint: Schema.optional(Schema.Boolean).annotate({
+        description: "Snapshot managed files before risky kit updates",
+      }),
+      telemetry: Schema.optional(Schema.Boolean).annotate({
+        description: "Send anonymous operational metrics (default: off)",
+      }),
+    }),
+  ).annotate({ description: "OC Kit workflow/agent engineering layer configuration" }),
 }).annotate({ identifier: "Config" })
 
 export type Info = DeepMutable<Schema.Schema.Type<typeof Info>>
