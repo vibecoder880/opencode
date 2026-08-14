@@ -42,52 +42,57 @@ const layer = Layer.effect(
     const fs = yield* FSUtil.Service
 
     const indexKit = Effect.fn("OCKitRegistry.indexKit")(function* (
-    kitDir: string,
-    kits: State["kits"],
-    dirs: string[],
-  ) {
-    const manifest = yield* loadManifest(kitDir).pipe(
-      Effect.catchTag("OCKitManifestError", (err) =>
-        Effect.logWarning("skipping invalid kit manifest", { dir: kitDir, error: err.message }).pipe(Effect.as(undefined)),
-      ),
+      fs: FSUtil.Interface,
+      kitDir: string,
+      kits: State["kits"],
+      dirs: string[],
+    ) {
+      const manifest = yield* loadManifest(kitDir).pipe(
+        Effect.provideService(FSUtil.Service, fs),
+        Effect.catchTag("OCKitManifestError", (err) =>
+          Effect.logWarning("skipping invalid kit manifest", { dir: kitDir, error: err.message }).pipe(
+            Effect.as(undefined),
+          ),
+        ),
+        Effect.orDie,
+      )
+      if (!manifest) return
+      if (kits[manifest.id]) {
+        yield* Effect.logWarning("duplicate kit id, keeping first", { id: manifest.id, dir: kitDir })
+        return
+      }
+      kits[manifest.id] = manifest
+      dirs.push(kitDir)
+    })
+
+    const state = yield* InstanceState.make<State>(
+      Effect.fn("OCKitRegistry.state")(function* (ctx) {
+        const kits: Record<string, Kit> = {}
+        const dirs: string[] = []
+
+        // Global: <config>/kits/<kit-id>/
+        const globalKits = path.join(Global.Path.config, KITS_DIR)
+        if (yield* fs.isDir(globalKits)) {
+          for (const entry of yield* fs.readDirectoryEntries(globalKits).pipe(Effect.orDie)) {
+            if (entry.type !== "directory") continue
+            yield* indexKit(fs, path.join(globalKits, entry.name), kits, dirs)
+          }
+        }
+
+        // Project: <config-dir>/kits/ from each config directory (up-find of .opencode).
+        const configDirs = yield* config.directories()
+        for (const dir of configDirs) {
+          const projectKits = path.join(dir, KITS_DIR)
+          if (!(yield* fs.isDir(projectKits))) continue
+          for (const entry of yield* fs.readDirectoryEntries(projectKits).pipe(Effect.orDie)) {
+            if (entry.type !== "directory") continue
+            yield* indexKit(fs, path.join(projectKits, entry.name), kits, dirs)
+          }
+        }
+
+        return { kits, dirs }
+      }),
     )
-    if (!manifest) return
-    if (kits[manifest.id]) {
-      yield* Effect.logWarning("duplicate kit id, keeping first", { id: manifest.id, dir: kitDir })
-      return
-    }
-    kits[manifest.id] = manifest
-    dirs.push(kitDir)
-  })
-
-  const state = yield* InstanceState.make<State, Error>(
-    Effect.fn("OCKitRegistry.state")(function* (ctx) {
-      const kits: Record<string, Kit> = {}
-      const dirs: string[] = []
-
-      // Global: <config>/kits/<kit-id>/
-      const globalKits = path.join(Global.Path.config, KITS_DIR)
-      if (yield* fs.isDir(globalKits)) {
-        for (const entry of yield* fs.readDirectoryEntries(globalKits)) {
-          if (entry.type !== "directory") continue
-          yield* indexKit(path.join(globalKits, entry.name), kits, dirs)
-        }
-      }
-
-      // Project: <config-dir>/kits/ from each config directory (up-find of .opencode).
-      const configDirs = yield* config.directories()
-      for (const dir of configDirs) {
-        const projectKits = path.join(dir, KITS_DIR)
-        if (!(yield* fs.isDir(projectKits))) continue
-        for (const entry of yield* fs.readDirectoryEntries(projectKits)) {
-          if (entry.type !== "directory") continue
-          yield* indexKit(path.join(projectKits, entry.name), kits, dirs)
-        }
-      }
-
-      return { kits, dirs }
-    }),
-  )
 
   const all = Effect.fn("OCKitRegistry.all")(function* () {
       const s = yield* InstanceState.get(state)
