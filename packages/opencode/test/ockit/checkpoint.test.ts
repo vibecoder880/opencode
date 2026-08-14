@@ -44,7 +44,9 @@ describe("ockit checkpoint", () => {
     ),
   )
 
-  it.effect("lists checkpoints newest first and filters by kit", () =>
+  // Needs the real clock: `Effect.sleep` below would otherwise suspend forever
+  // under the TestClock that `it.effect` layers in (see test/lib/effect.ts).
+  it.live("lists checkpoints newest first and filters by kit", () =>
     withRoot((root) =>
       Effect.gen(function* () {
         const one = yield* create({ root, kit: "engineer", kitVersion: "1.0.0", operation: "update", files: {} })
