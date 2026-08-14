@@ -60,7 +60,7 @@ const layer = Layer.effect(
     dirs.push(kitDir)
   })
 
-  const state = yield* InstanceState.make<State>(
+  const state = yield* InstanceState.make<State, Error>(
     Effect.fn("OCKitRegistry.state")(function* (ctx) {
       const kits: Record<string, Kit> = {}
       const dirs: string[] = []

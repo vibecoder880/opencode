@@ -15,7 +15,7 @@ export class OwnershipError extends Schema.TaggedErrorClass<OwnershipError>()("O
   path: Schema.String,
   message: Schema.optional(Schema.String),
 }) {
-  override get message() {
+  override get message(): string {
     return `OC Kit ownership: ${this.path}${this.message ? ` — ${this.message}` : ""}`
   }
 }
@@ -26,8 +26,8 @@ export const loadOwnership = Effect.fn("OCKit.ownership.load")(function* (root: 
   const path = `${root}/${OWNERSHIP_MANIFEST_PATH}`
   const raw = yield* fs.readFileStringSafe(path)
   if (raw === undefined) return { files: {} }
-  const decoded = yield* Schema.decodeUnknown(OwnershipManifest)(JSON.parse(raw)).pipe(
-    Effect.mapError((err) => new OwnershipError({ path, message: Schema.TreeFormatter.formatIssueSync(err.issue) })),
+  const decoded = yield* Schema.decodeUnknownEffect(OwnershipManifest)(JSON.parse(raw)).pipe(
+    Effect.mapError((err) => new OwnershipError({ path, message: String(err) })),
   )
   return decoded
 })
@@ -50,9 +50,11 @@ export const claim = Effect.fn("OCKit.ownership.claim")(function* (
   version: string,
   files: Record<string, string>,
 ) {
+  // Work on a mutable copy — the manifest schema type is read-only.
+  const next: Record<string, OwnershipEntry> = { ...manifest.files }
   const conflicts: string[] = []
   for (const file of Object.keys(files)) {
-    const existing = manifest.files[file]
+    const existing = next[file]
     if (existing && existing.kit !== kit) conflicts.push(file)
   }
   if (conflicts.length > 0) {
@@ -63,9 +65,9 @@ export const claim = Effect.fn("OCKit.ownership.claim")(function* (
   }
   for (const [file, content] of Object.entries(files)) {
     const entry: OwnershipEntry = { owner: "oc-kit", kit, version, sha256: Hash.sha256(content) }
-    manifest.files[file] = entry
+    next[file] = entry
   }
-  return manifest
+  return { files: next }
 })
 
 /**
@@ -99,7 +101,9 @@ export const planUpdate = Effect.fn("OCKit.ownership.planUpdate")(function* (
   files: Record<string, string>,
 ) {
   const plan: { replace: string[]; preserve: string[]; warn: string[] } = { replace: [], preserve: [], warn: [] }
+  const handled = new Set<string>()
   for (const file of Object.keys(files)) {
+    handled.add(file)
     const entry = manifest.files[file]
     if (!entry || entry.kit !== kit) {
       plan.preserve.push(file)
@@ -108,6 +112,12 @@ export const planUpdate = Effect.fn("OCKit.ownership.planUpdate")(function* (
     const content = yield* fs.readFileStringSafe(`${root}/${file}`)
     if (content === undefined || Hash.sha256(content) === entry.sha256) plan.replace.push(file)
     else plan.warn.push(file)
+  }
+  // Files the manifest tracks but this update does not touch are never
+  // replaced — preserve anything we do not own so another kit's or the
+  // user's work is not overwritten.
+  for (const [file, entry] of Object.entries(manifest.files)) {
+    if (!handled.has(file) && entry.kit !== kit) plan.preserve.push(file)
   }
   plan.warn.forEach((file) => plan.preserve.push(file))
   return plan

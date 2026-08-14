@@ -10,7 +10,7 @@ export class ResolveError extends Schema.TaggedErrorClass<ResolveError>()("OCKit
   id: Schema.String,
   kit: Schema.String,
 }) {
-  override get message() {
+  override get message(): string {
     return `OC Kit: no ${this.kind} "${this.id}" declared in kit "${this.kit}"`
   }
 }
@@ -43,10 +43,18 @@ export function resolveFromKit<K extends KitIndexKeys>(
 ): KitIndex[K] extends Map<string, infer V> ? V : never {
   const found = index[kind].get(id)
   if (found) return found as KitIndex[K] extends Map<string, infer V> ? V : never
-  throw new ResolveError({ kind, id, kit: index.kit.id })
+  throw new ResolveError({ kind: KIND_LABEL[kind], id, kit: index.kit.id })
 }
 
 type KitIndexKeys = "skills" | "agents" | "workflows" | "hooks"
+
+/** Singular label used in error messages, keyed by the plural index key. */
+const KIND_LABEL: Record<KitIndexKeys, "skill" | "agent" | "workflow" | "hook"> = {
+  skills: "skill",
+  agents: "agent",
+  workflows: "workflow",
+  hooks: "hook",
+}
 
 /**
  * Resolve a declaration across all installed kits. `registry` is an injected

@@ -46,10 +46,8 @@ export const loadManifest = Effect.fn("OCKit.manifest")(function* (kitDir: strin
     catch: (cause) => new ManifestError({ path, message: `Invalid ${KIT_MANIFEST_JSON} syntax: ${String(cause)}` }),
   })
 
-  const decoded = yield* Schema.decodeUnknown(Kit)(raw).pipe(
-    Effect.mapError(
-      (err) => new ManifestError({ path, message: Schema.TreeFormatter.formatIssueSync(err.issue) }),
-    ),
+  const decoded = yield* Schema.decodeUnknownEffect(Kit)(raw).pipe(
+    Effect.mapError((err) => new ManifestError({ path, message: String(err) })),
   )
 
   return decoded

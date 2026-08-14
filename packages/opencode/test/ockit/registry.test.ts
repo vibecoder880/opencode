@@ -20,7 +20,7 @@ const VALID_KIT = {
   skills: [{ id: "plan", description: "Create an implementation plan" }],
 }
 
-function withConfigDir<A, E>(configDir: string, self: Effect.Effect<A, E>) {
+function withConfigDir<A, E, R>(configDir: string, self: Effect.Effect<A, E, R>) {
   return Effect.acquireUseRelease(
     Effect.sync(() => {
       const prev = process.env.OPENCODE_CONFIG_DIR

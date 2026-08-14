@@ -15,7 +15,7 @@ export class CheckpointError extends Schema.TaggedErrorClass<CheckpointError>()(
   path: Schema.String,
   message: Schema.optional(Schema.String),
 }) {
-  override get message() {
+  override get message(): string {
     return `OC Kit checkpoint: ${this.path}${this.message ? ` — ${this.message}` : ""}`
   }
 }
@@ -63,8 +63,8 @@ export const read = Effect.fn("OCKit.checkpoint.read")(function* (root: string, 
   const path = `${root}/${CHECKPOINT_DIR}/${id}.json`
   const raw = yield* fs.readFileStringSafe(path)
   if (raw === undefined) return yield* new CheckpointError({ path, message: `No checkpoint "${id}"` })
-  const decoded = yield* Schema.decodeUnknown(Checkpoint)(JSON.parse(raw)).pipe(
-    Effect.mapError((err) => new CheckpointError({ path, message: Schema.TreeFormatter.formatIssueSync(err.issue) })),
+  const decoded = yield* Schema.decodeUnknownEffect(Checkpoint)(JSON.parse(raw)).pipe(
+    Effect.mapError((err) => new CheckpointError({ path, message: String(err) })),
   )
   return decoded
 })

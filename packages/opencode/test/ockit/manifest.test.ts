@@ -1,5 +1,5 @@
 import { describe, expect } from "bun:test"
-import { Effect, Layer } from "effect"
+import { Cause, Effect, Layer } from "effect"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { testEffect } from "../lib/effect"
@@ -19,34 +19,37 @@ const VALID_KIT = {
   skills: [{ id: "plan", description: "Create an implementation plan" }],
 }
 
-function makeKitDir(files: Record<string, string>) {
-  return Effect.gen(function* () {
-    const dir = path.join(os.tmpdir(), "ockit-test-" + Math.random().toString(36).slice(2))
-    for (const [rel, content] of Object.entries(files)) {
-      const full = path.join(dir, rel)
-      yield* Effect.promise(() => fs.mkdir(path.dirname(full), { recursive: true }))
-      yield* Effect.promise(() => Bun.write(full, content))
-    }
-    return dir
-  })
+/** Create a kit dir with the given files, then clean it up when the effect scope closes. */
+function withKitDir<E, R>(files: Record<string, string>, use: (dir: string) => Effect.Effect<unknown, E, R>) {
+  return Effect.acquireUseRelease(
+    Effect.gen(function* () {
+      const dir = path.join(os.tmpdir(), "ockit-test-" + Math.random().toString(36).slice(2))
+      for (const [rel, content] of Object.entries(files)) {
+        const full = path.join(dir, rel)
+        yield* Effect.promise(() => fs.mkdir(path.dirname(full), { recursive: true }))
+        yield* Effect.promise(() => Bun.write(full, content))
+      }
+      return dir
+    }),
+    use,
+    (dir) => Effect.promise(() => fs.rm(dir, { recursive: true, force: true })),
+  )
 }
 
 describe("ockit manifest", () => {
   it.effect("loads a valid kit.json manifest", () =>
-    Effect.gen(function* () {
-      const dir = yield* makeKitDir({ "kit.json": JSON.stringify(VALID_KIT) })
-      try {
+    withKitDir({ "kit.json": JSON.stringify(VALID_KIT) }, (dir) =>
+      Effect.gen(function* () {
         const kit = yield* loadManifest(dir)
         expect(kit.id).toBe("engineer")
         expect(kit.skills?.[0]?.id).toBe("plan")
-      } finally {
-        yield* Effect.promise(() => fs.rm(dir, { recursive: true, force: true }))
-      }
-    }))
+      }),
+    ),
+  )
 
   it.effect("loads a kit.yaml manifest via Bun.YAML", () =>
-    Effect.gen(function* () {
-      const dir = yield* makeKitDir({
+    withKitDir(
+      {
         "kit.yaml": `id: engineer
 name: OC Engineer Kit
 version: 1.0.0
@@ -55,53 +58,49 @@ skills:
   - id: plan
     description: Create an implementation plan
 `,
-      })
-      try {
-        const kit = yield* loadManifest(dir)
-        expect(kit.id).toBe("engineer")
-        expect(kit.skills?.[0]?.id).toBe("plan")
-      } finally {
-        yield* Effect.promise(() => fs.rm(dir, { recursive: true, force: true }))
-      }
-    }))
+      },
+      (dir) =>
+        Effect.gen(function* () {
+          const kit = yield* loadManifest(dir)
+          expect(kit.id).toBe("engineer")
+          expect(kit.skills?.[0]?.id).toBe("plan")
+        }),
+    ),
+  )
 
   it.effect("prefers kit.json over kit.yaml", () =>
-    Effect.gen(function* () {
-      const dir = yield* makeKitDir({
+    withKitDir(
+      {
         "kit.json": JSON.stringify({ ...VALID_KIT, name: "JSON KIT" }),
         "kit.yaml": "id: engineer\nname: YAML KIT\nversion: 1.0.0\n",
-      })
-      try {
-        const kit = yield* loadManifest(dir)
-        expect(kit.name).toBe("JSON KIT")
-      } finally {
-        yield* Effect.promise(() => fs.rm(dir, { recursive: true, force: true }))
-      }
-    }))
+      },
+      (dir) =>
+        Effect.gen(function* () {
+          const kit = yield* loadManifest(dir)
+          expect(kit.name).toBe("JSON KIT")
+        }),
+    ),
+  )
 
   it.effect("fails with ManifestError when no manifest exists", () =>
-    Effect.gen(function* () {
-      const dir = yield* makeKitDir({ "README.md": "no manifest here" })
-      try {
+    withKitDir({ "README.md": "no manifest here" }, (dir) =>
+      Effect.gen(function* () {
         const result = yield* loadManifest(dir).pipe(Effect.exit)
         expect(result._tag).toBe("Failure")
         if (result._tag === "Failure") {
-          const error = result.cause.defects[0] ?? result.cause.failures[0]
+          const error = Cause.squash(result.cause)
           expect(String(error)).toContain("No kit manifest found")
         }
-      } finally {
-        yield* Effect.promise(() => fs.rm(dir, { recursive: true, force: true }))
-      }
-    }))
+      }),
+    ),
+  )
 
   it.effect("fails with ManifestError on invalid schema", () =>
-    Effect.gen(function* () {
-      const dir = yield* makeKitDir({ "kit.json": JSON.stringify({ id: "engineer" }) })
-      try {
+    withKitDir({ "kit.json": JSON.stringify({ id: "engineer" }) }, (dir) =>
+      Effect.gen(function* () {
         const result = yield* loadManifest(dir).pipe(Effect.exit)
         expect(result._tag).toBe("Failure")
-      } finally {
-        yield* Effect.promise(() => fs.rm(dir, { recursive: true, force: true }))
-      }
-    }))
+      }),
+    ),
+  )
 })

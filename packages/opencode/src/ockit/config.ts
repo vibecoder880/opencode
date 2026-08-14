@@ -3,7 +3,7 @@
 // exposes typed accessors so OC Kit runtime code reads its settings through the
 // existing Config service instead of a parallel config system.
 
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 import { Config } from "@/config/config"
 import { OCKitConfig, type OCKitConfig as OCKitConfigType } from "./types"
 
@@ -33,5 +33,5 @@ export const enabled = Effect.fn("OCKit.config.enabled")(function* () {
 
 /** Validate a raw `oc_kit` value structurally (used when parsing config). */
 export function validate(input: unknown): OCKitConfigType | undefined {
-  return Schema.decodeUnknownOption(OCKitConfig)(input)
+  return Option.getOrUndefined(Schema.decodeUnknownOption(OCKitConfig)(input))
 }
