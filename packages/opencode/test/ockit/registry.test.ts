@@ -1,14 +1,16 @@
 import { describe, expect } from "bun:test"
 import { Effect } from "effect"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
-import { FSUtil } from "@opencode-ai/core/fs-util"
 import { testEffect } from "../lib/effect"
 import { Service as Registry, node as registryNode } from "../../src/ockit/registry"
-import { testInstanceStoreLayer } from "../fixture/fixture"
-import path from "path"
+import { TestInstance } from "../fixture/fixture"
 import fs from "fs/promises"
 
-const it = testEffect(LayerNode.compile(registryNode, testInstanceStoreLayer))
+// The registry scans Global.Path.config (== Flag.OPENCODE_CONFIG_DIR when set)
+// for <config>/kits/<id>/kit.json, and needs a live InstanceRef. Each test
+// points OPENCODE_CONFIG_DIR at the tmpdir instance dir, writes kits under it,
+// and runs inside that instance (via it.instance) so InstanceState resolves.
+const it = testEffect(LayerNode.compile(registryNode))
 
 const VALID_KIT = {
   id: "engineer",
@@ -18,73 +20,79 @@ const VALID_KIT = {
   skills: [{ id: "plan", description: "Create an implementation plan" }],
 }
 
-async function writeGlobalKit(home: string, kitId: string, manifest: unknown) {
-  const dir = path.join(home, ".config", "opencode", "kits", kitId)
-  await fs.mkdir(dir, { recursive: true })
-  await Bun.write(path.join(dir, "kit.json"), JSON.stringify(manifest))
-}
-
-const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
-  Effect.acquireUseRelease(
+function withConfigDir<A, E>(configDir: string, self: Effect.Effect<A, E>) {
+  return Effect.acquireUseRelease(
     Effect.sync(() => {
-      const prev = process.env.OPENCODE_TEST_HOME
-      process.env.OPENCODE_TEST_HOME = home
+      const prev = process.env.OPENCODE_CONFIG_DIR
+      process.env.OPENCODE_CONFIG_DIR = configDir
       return prev
     }),
     () => self,
     (prev) =>
       Effect.sync(() => {
-        process.env.OPENCODE_TEST_HOME = prev
+        if (prev === undefined) delete process.env.OPENCODE_CONFIG_DIR
+        else process.env.OPENCODE_CONFIG_DIR = prev
+      }),
+  )
+}
+
+function writeKit(configDir: string, kitId: string, manifest: unknown = VALID_KIT) {
+  return Effect.gen(function* () {
+    yield* Effect.promise(() => fs.mkdir(`${configDir}/kits/${kitId}`, { recursive: true }))
+    yield* Effect.promise(() => Bun.write(`${configDir}/kits/${kitId}/kit.json`, JSON.stringify(manifest)))
+  })
+}
+
+describe("ockit registry", () => {
+  it.instance(
+    "indexes a global kit and resolves it by id",
+    () =>
+      Effect.gen(function* () {
+        const { directory } = yield* TestInstance
+        yield* withConfigDir(
+          directory,
+          Effect.gen(function* () {
+            yield* writeKit(directory, "engineer")
+            const registry = yield* Registry
+            const result = yield* registry.get("engineer")
+            expect(result?.name).toBe("OC Engineer Kit")
+          }),
+        )
       }),
   )
 
-describe("ockit registry", () => {
-  it.effect("indexes a global kit and resolves it by id", async () => {
-    const home = path.join(process.cwd(), "tmp-ockit-home-" + Math.random().toString(36).slice(2))
-    await writeGlobalKit(home, "engineer", VALID_KIT)
-    try {
-      const result = await Effect.runPromise(
-        withHome(home, Effect.gen(function* () {
-          const registry = yield* Registry
-          return yield* registry.get("engineer")
-        })),
-      )
-      expect(result?.name).toBe("OC Engineer Kit")
-    } finally {
-      await fs.rm(home, { recursive: true, force: true })
-    }
-  })
+  it.instance(
+    "require throws NotFoundError for an unknown kit",
+    () =>
+      Effect.gen(function* () {
+        const { directory } = yield* TestInstance
+        yield* withConfigDir(
+          directory,
+          Effect.gen(function* () {
+            yield* writeKit(directory, "engineer")
+            const registry = yield* Registry
+            const result = yield* registry.require("missing").pipe(Effect.exit)
+            expect(result._tag).toBe("Failure")
+          }),
+        )
+      }),
+  )
 
-  it.effect("require throws NotFoundError for an unknown kit", async () => {
-    const home = path.join(process.cwd(), "tmp-ockit-home-" + Math.random().toString(36).slice(2))
-    await writeGlobalKit(home, "engineer", VALID_KIT)
-    try {
-      const result = await Effect.runPromise(
-        withHome(home, Effect.gen(function* () {
-          const registry = yield* Registry
-          return yield* registry.require("missing").pipe(Effect.exit)
-        })),
-      )
-      expect(result._tag).toBe("Failure")
-    } finally {
-      await fs.rm(home, { recursive: true, force: true })
-    }
-  })
-
-  it.effect("skips a kit with an invalid manifest", async () => {
-    const home = path.join(process.cwd(), "tmp-ockit-home-" + Math.random().toString(36).slice(2))
-    await writeGlobalKit(home, "broken", { id: "broken" })
-    await writeGlobalKit(home, "engineer", VALID_KIT)
-    try {
-      const result = await Effect.runPromise(
-        withHome(home, Effect.gen(function* () {
-          const registry = yield* Registry
-          return yield* registry.all()
-        })),
-      )
-      expect(result.map((kit) => kit.id)).toEqual(["engineer"])
-    } finally {
-      await fs.rm(home, { recursive: true, force: true })
-    }
-  })
+  it.instance(
+    "skips a kit with an invalid manifest",
+    () =>
+      Effect.gen(function* () {
+        const { directory } = yield* TestInstance
+        yield* withConfigDir(
+          directory,
+          Effect.gen(function* () {
+            yield* writeKit(directory, "engineer")
+            yield* writeKit(directory, "broken", { id: "broken" })
+            const registry = yield* Registry
+            const result = yield* registry.all()
+            expect(result.map((kit) => kit.id)).toEqual(["engineer"])
+          }),
+        )
+      }),
+  )
 })

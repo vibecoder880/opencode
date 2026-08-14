@@ -13,96 +13,97 @@ import fs from "fs/promises"
 const layer = LayerNode.compile(FSUtil.node)
 const it = testEffect(layer)
 
-async function makeRoot() {
-  const dir = path.join(os.tmpdir(), "ockit-own-" + Math.random().toString(36).slice(2))
-  await fs.mkdir(path.join(dir, ".oc", "state"), { recursive: true })
-  return dir
+function makeRoot() {
+  return Effect.gen(function* () {
+    const dir = path.join(os.tmpdir(), "ockit-own-" + Math.random().toString(36).slice(2))
+    yield* Effect.promise(() => fs.mkdir(path.join(dir, ".oc", "state"), { recursive: true }))
+    return dir
+  })
 }
 
 describe("ockit ownership", () => {
-  it.effect("claims ownership of shipped files with sha256", async () => {
-    const manifest: OwnershipManifest = { files: {} }
-    const result = await Effect.runPromise(claim(manifest, "engineer", "1.0.0", { "a.md": "hello" }))
-    const entry = result.files["a.md"]
-    expect(entry?.owner).toBe("oc-kit")
-    expect(entry?.kit).toBe("engineer")
-    expect(entry?.sha256).toBe(Hash.sha256("hello"))
-  })
+  it.effect("claims ownership of shipped files with sha256", () =>
+    Effect.gen(function* () {
+      const manifest: OwnershipManifest = { files: {} }
+      const result = yield* claim(manifest, "engineer", "1.0.0", { "a.md": "hello" })
+      const entry = result.files["a.md"]
+      expect(entry?.owner).toBe("oc-kit")
+      expect(entry?.kit).toBe("engineer")
+      expect(entry?.sha256).toBe(Hash.sha256("hello"))
+    }))
 
-  it.effect("rejects a file already owned by another kit", async () => {
-    const manifest: OwnershipManifest = {
-      files: { "a.md": { owner: "oc-kit", kit: "security", version: "1.0.0", sha256: Hash.sha256("x") } },
-    }
-    const result = await Effect.runPromise(claim(manifest, "engineer", "1.0.0", { "a.md": "hello" }).pipe(Effect.exit))
-    expect(result._tag).toBe("Failure")
-  })
-
-  it.effect("detects user edits by hash mismatch", async () => {
-    const root = await makeRoot()
-    try {
-      await Bun.write(path.join(root, "a.md"), "original")
+  it.effect("rejects a file already owned by another kit", () =>
+    Effect.gen(function* () {
       const manifest: OwnershipManifest = {
-        files: { "a.md": { owner: "oc-kit", kit: "engineer", version: "1.0.0", sha256: Hash.sha256("original") } },
+        files: { "a.md": { owner: "oc-kit", kit: "security", version: "1.0.0", sha256: Hash.sha256("x") } },
       }
-      const runEdits = (m: OwnershipManifest) => Effect.gen(function* () {
+      const result = yield* claim(manifest, "engineer", "1.0.0", { "a.md": "hello" }).pipe(Effect.exit)
+      expect(result._tag).toBe("Failure")
+    }))
+
+  it.effect("detects user edits by hash mismatch", () =>
+    Effect.gen(function* () {
+      const root = yield* makeRoot()
+      try {
+        yield* Effect.promise(() => Bun.write(path.join(root, "a.md"), "original"))
+        const manifest: OwnershipManifest = {
+          files: { "a.md": { owner: "oc-kit", kit: "engineer", version: "1.0.0", sha256: Hash.sha256("original") } },
+        }
         const fs = yield* FSUtil.Service
-        return yield* detectUserEdits(fs, root, m)
-      })
-      expect((await Effect.runPromise(runEdits(manifest))).length).toBe(0)
+        expect((yield* detectUserEdits(fs, root, manifest)).length).toBe(0)
 
-      await Bun.write(path.join(root, "a.md"), "edited")
-      expect(await Effect.runPromise(runEdits(manifest))).toEqual(["a.md"])
-    } finally {
-      await fs.rm(root, { recursive: true, force: true })
-    }
-  })
-
-  it.effect("planUpdate replaces owned/unmodified, preserves modified and foreign files", async () => {
-    const root = await makeRoot()
-    try {
-      await Bun.write(path.join(root, "owned.md"), "owned content")
-      await Bun.write(path.join(root, "foreign.md"), "user file")
-      const manifest: OwnershipManifest = {
-        files: {
-          "owned.md": { owner: "oc-kit", kit: "engineer", version: "1.0.0", sha256: Hash.sha256("owned content") },
-          "foreign.md": { owner: "oc-kit", kit: "security", version: "1.0.0", sha256: Hash.sha256("other") },
-        },
+        yield* Effect.promise(() => Bun.write(path.join(root, "a.md"), "edited"))
+        expect(yield* detectUserEdits(fs, root, manifest)).toEqual(["a.md"])
+      } finally {
+        yield* Effect.promise(() => fs.rm(root, { recursive: true, force: true }))
       }
-      const plan = await Effect.runPromise(
-        Effect.gen(function* () {
-          const fs = yield* FSUtil.Service
-          return yield* planUpdate(fs, root, manifest, "engineer", { "owned.md": "new content", "new.md": "x" })
-        }),
-      )
-      expect(plan.replace).toEqual(["owned.md"])
-      expect(plan.preserve).toContain("foreign.md")
-      expect(plan.preserve).toContain("new.md")
-    } finally {
-      await fs.rm(root, { recursive: true, force: true })
-    }
-  })
+    }))
 
-  it.effect("round-trips an ownership manifest through disk", async () => {
-    const root = await makeRoot()
-    try {
-      const manifest: OwnershipManifest = {
-        files: { "a.md": { owner: "oc-kit", kit: "engineer", version: "1.0.0", sha256: Hash.sha256("a") } },
+  it.effect("planUpdate replaces owned/unmodified, preserves modified and foreign files", () =>
+    Effect.gen(function* () {
+      const root = yield* makeRoot()
+      try {
+        yield* Effect.promise(() => Bun.write(path.join(root, "owned.md"), "owned content"))
+        yield* Effect.promise(() => Bun.write(path.join(root, "foreign.md"), "user file"))
+        const manifest: OwnershipManifest = {
+          files: {
+            "owned.md": { owner: "oc-kit", kit: "engineer", version: "1.0.0", sha256: Hash.sha256("owned content") },
+            "foreign.md": { owner: "oc-kit", kit: "security", version: "1.0.0", sha256: Hash.sha256("other") },
+          },
+        }
+        const fs = yield* FSUtil.Service
+        const plan = yield* planUpdate(fs, root, manifest, "engineer", { "owned.md": "new content", "new.md": "x" })
+        expect(plan.replace).toEqual(["owned.md"])
+        expect(plan.preserve).toContain("foreign.md")
+        expect(plan.preserve).toContain("new.md")
+      } finally {
+        yield* Effect.promise(() => fs.rm(root, { recursive: true, force: true }))
       }
-      await Effect.runPromise(saveOwnership(root, manifest))
-      const loaded = await Effect.runPromise(loadOwnership(root))
-      expect(loaded.files["a.md"]?.kit).toBe("engineer")
-    } finally {
-      await fs.rm(root, { recursive: true, force: true })
-    }
-  })
+    }))
 
-  it.effect("loadOwnership returns empty manifest when absent", async () => {
-    const root = await makeRoot()
-    try {
-      const loaded = await Effect.runPromise(loadOwnership(root))
-      expect(loaded.files).toEqual({})
-    } finally {
-      await fs.rm(root, { recursive: true, force: true })
-    }
-  })
+  it.effect("round-trips an ownership manifest through disk", () =>
+    Effect.gen(function* () {
+      const root = yield* makeRoot()
+      try {
+        const manifest: OwnershipManifest = {
+          files: { "a.md": { owner: "oc-kit", kit: "engineer", version: "1.0.0", sha256: Hash.sha256("a") } },
+        }
+        yield* saveOwnership(root, manifest)
+        const loaded = yield* loadOwnership(root)
+        expect(loaded.files["a.md"]?.kit).toBe("engineer")
+      } finally {
+        yield* Effect.promise(() => fs.rm(root, { recursive: true, force: true }))
+      }
+    }))
+
+  it.effect("loadOwnership returns empty manifest when absent", () =>
+    Effect.gen(function* () {
+      const root = yield* makeRoot()
+      try {
+        const loaded = yield* loadOwnership(root)
+        expect(loaded.files).toEqual({})
+      } finally {
+        yield* Effect.promise(() => fs.rm(root, { recursive: true, force: true }))
+      }
+    }))
 })

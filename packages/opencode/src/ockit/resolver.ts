@@ -36,9 +36,13 @@ export function indexKit(kit: Kit): KitIndex {
 }
 
 /** Resolve a kit's own declarations by name; throws ResolveError when absent. */
-export function resolveFromKit(index: KitIndex, kind: KitIndexKeys, id: string) {
+export function resolveFromKit<K extends KitIndexKeys>(
+  index: KitIndex,
+  kind: K,
+  id: string,
+): KitIndex[K] extends Map<string, infer V> ? V : never {
   const found = index[kind].get(id)
-  if (found) return found
+  if (found) return found as KitIndex[K] extends Map<string, infer V> ? V : never
   throw new ResolveError({ kind, id, kit: index.kit.id })
 }
 
