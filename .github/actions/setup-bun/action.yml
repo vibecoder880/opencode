@@ -54,16 +54,33 @@ runs:
       shell: bash
 
     - name: Install dependencies
+      shell: bash
       run: |
         # Workaround for patched peer variants
         # e.g. ./patches/ for standard-openapi
         # https://github.com/oven-sh/bun/issues/28147
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          bun install --linker hoisted ${{ inputs.install-flags }}
-        else
+        if [ "$RUNNER_OS" != "Windows" ]; then
           bun install ${{ inputs.install-flags }}
+          exit $?
         fi
-      shell: bash
+
+        # On Windows, `bun install --linker hoisted` occasionally fails to apply
+        # a patchfile with "ENOTEMPTY: ... Directory not empty" while renaming the
+        # patched package into a cache dir (e.g. @ai-sdk/openai-compatible). This is
+        # a bun-Windows race with the dependency cache, not a code defect: the leftover
+        # half-written dir makes the rename collide on the next attempt. Retry by
+        # clearing the bun package cache first so the reinstall starts from a clean dir.
+        for attempt in 1 2 3; do
+          echo "bun install attempt $attempt (--linker hoisted)"
+          if bun install --linker hoisted ${{ inputs.install-flags }}; then
+            exit 0
+          fi
+          echo "bun install failed on attempt $attempt; clearing bun cache and retrying"
+          bun pm cache rm 2>/dev/null || rm -rf "$(bun pm cache)"
+          echo "cleared bun package cache"
+        done
+        echo "bun install failed after 3 attempts"
+        exit 1
 
     - name: Save Bun dependencies
       if: steps.bun-cache.outputs.cache-hit != 'true' && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
