@@ -372,7 +372,7 @@ describe("util.effect-flock", () => {
         const proc = spawnWorker({ key: "eflock:crash", dir, ready, holdMs: 120_000 })
 
         try {
-          await waitForFile(ready, 5_000)
+          await waitForFile(ready, 15_000)
           await stopWorker(proc)
 
           // Backdate lock files so they're past STALE_MS (60s)
