@@ -65,6 +65,7 @@ describe("Snapshot", () => {
         }),
       (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
     ),
+    30_000, // bun per-test timeout (defaults to 5000); real git subprocesses need headroom on Windows CI
   )
 
   testEffect(Layer.empty).live("treats capture outside Git as unavailable", () =>

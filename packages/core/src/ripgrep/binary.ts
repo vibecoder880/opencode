@@ -57,11 +57,18 @@ export namespace RipgrepBinary {
 
         if (config.extension === "zip") {
           const shell = (yield* Effect.sync(() => which("powershell.exe") ?? which("pwsh.exe"))) ?? "powershell.exe"
+          // `Expand-Archive` (PowerShell 5.1) hangs indefinitely on shared Windows
+          // CI runners while staging files (observed SIGTERM at 5/30/60s test
+          // timeouts). `[IO.Compression.ZipFile]::ExtractToDirectory` is the same
+          // .NET BCL the setup-bun action uses to extract a comparable zip in
+          // under 1s on the same runner. Key differences: Add-Type is unconditional
+          // (progress bars are off by default in -NonInteractive), and the
+          // destination is a scoped temp dir so no :Delete\:\*:\* flags are needed.
           const result = yield* run(shell, [
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            `$global:ProgressPreference = 'SilentlyContinue'; Expand-Archive -LiteralPath '${archive.replaceAll("'", "''")}' -DestinationPath '${dir.replaceAll("'", "''")}' -Force`,
+            `Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('${archive.replaceAll("'", "''")}', '${dir.replaceAll("'", "''")}')`,
           ])
           if (result.code !== 0)
             throw new Error(
