@@ -12,6 +12,7 @@ import { Effect, Schema } from "effect"
 import { KitHook, Kit } from "../types"
 import { OCEvent } from "./events"
 import { matchHooks, HookError } from "./matcher"
+import { Process } from "@/util/process"
 
 /**
  * Spawn a hook command string through the host shell and wait for it to exit.
@@ -21,12 +22,11 @@ import { matchHooks, HookError } from "./matcher"
 const runHookCommand = Effect.fn("OCKit.hook.runCommand")(function* (event: OCEvent, hook: KitHook) {
   const result = yield* Effect.tryPromise({
     try: async () => {
-      const proc = Bun.spawn([hook.command], {
+      const proc = Process.spawn([hook.command], {
         shell: true,
         stdout: "ignore",
         stderr: "ignore",
         env: {
-          ...process.env,
           OC_KIT_EVENT: event._tag,
           OC_KIT_HOOK_COMMAND: hook.command,
         },
