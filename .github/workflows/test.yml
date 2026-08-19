@@ -61,8 +61,16 @@ jobs:
         if: runner.os != 'Linux'
         uses: ./.github/actions/setup-bun
 
-      - name: Configure git identity
+      # Linux CI runs inside the fork GHCR image, which already ships Node + Bun,
+      # so the setup actions above are skipped. Dependencies still need installing
+      # from the lockfile to populate node_modules/.bin (turbo, playwright, …).
+      - name: Install dependencies (container)
+        if: runner.os == 'Linux'
         run: |
+          python3 -m pip install setuptools >/dev/null 2>&1 || true
+          bun install --frozen-lockfile
+
+      - name: Configure git identity        run: |
           git config --global user.email "bot@opencode.ai"
           git config --global user.name "opencode"
 
@@ -127,6 +135,14 @@ jobs:
       - name: Setup Bun
         if: runner.os != 'Linux'
         uses: ./.github/actions/setup-bun
+
+      # Linux CI runs inside the fork GHCR image (Node + Bun preinstalled); the
+      # setup actions above are skipped, so install deps from the lockfile here.
+      - name: Install dependencies (container)
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m pip install setuptools >/dev/null 2>&1 || true
+          bun install --frozen-lockfile
 
       - name: Read Playwright version
         id: playwright-version
