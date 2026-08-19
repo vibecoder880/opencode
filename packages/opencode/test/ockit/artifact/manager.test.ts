@@ -146,7 +146,7 @@ describe("ockit artifact manager", () => {
         yield* create({ root, id: "art-1", type: "report", path: contentFile })
 
         const checkpointDir = path.join(root, ".oc", "state", "checkpoints")
-        const entries = yield* fs.readdir(checkpointDir).catch(() => [])
+        const entries = yield* Effect.promise(() => fs.readdir(checkpointDir).catch(() => []))
         expect(entries.length).toBeGreaterThan(0)
       }),
     ),
@@ -169,10 +169,12 @@ describe("ockit artifact manager config-respect", () => {
         yield* create({ root, id: "art-1", type: "report", path: contentFile })
 
         const checkpointDir = path.join(root, ".oc", "state", "checkpoints")
-        const exists = yield* fs
-          .access(checkpointDir)
-          .then(() => true)
-          .catch(() => false)
+        const exists = yield* Effect.promise(() =>
+          fs
+            .access(checkpointDir)
+            .then(() => true)
+            .catch(() => false),
+        )
         expect(exists).toBe(false)
       }),
     ),

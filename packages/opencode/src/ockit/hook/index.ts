@@ -9,4 +9,4 @@ export * from "./events"
 export * from "./matcher"
 export * from "./dispatcher"
 
-export * as Hook from "./hook"
+export * as Hook from "./index"

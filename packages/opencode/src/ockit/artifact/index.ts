@@ -6,4 +6,4 @@
 export * from "./manager"
 export * from "./manifest"
 
-export * as Artifact from "./artifact"
+export * as Artifact from "./index"

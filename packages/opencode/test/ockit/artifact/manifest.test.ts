@@ -56,7 +56,7 @@ describe("ockit artifact manifest", () => {
 
         // Verify the file landed under .oc/artifacts/manifest.json.
         const filePath = path.join(artifactsRoot(root), ARTIFACT_MANIFEST_FILE)
-        const raw = yield* fs.readFile(filePath, "utf8")
+        const raw = yield* Effect.promise(() => fs.readFile(filePath, "utf8"))
         expect(JSON.parse(raw).artifacts["art-1"].id).toBe("art-1")
       }),
     ),

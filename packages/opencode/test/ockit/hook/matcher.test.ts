@@ -1,4 +1,4 @@
-import { describe, expect } from "bun:test"
+import { describe, expect, it } from "bun:test"
 import { knownEventOrThrow, matchHooks, matches } from "../../../src/ockit/hook/matcher"
 import type { OCEvent } from "../../../src/ockit/hook/events"
 import type { KitHook } from "../../../src/ockit/types"
