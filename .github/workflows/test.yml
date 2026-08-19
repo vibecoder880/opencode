@@ -72,7 +72,15 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           python3 -m pip install setuptools >/dev/null 2>&1 || true
-          bun install --frozen-lockfile
+          # GitHub's tarball API intermittently returns 504 while resolving git
+          # dependencies (e.g. ghostty-web); retry so a transient outage does not
+          # fail the required unit(linux) job. The host jobs rely on setup-bun's
+          # own retry, so only the container path needs this guard.
+          for i in 1 2 3; do
+            bun install --frozen-lockfile && break
+            echo "bun install failed (attempt $i), retrying…"
+            sleep 10
+          done
 
       - name: Configure git identity
         run: |
@@ -158,7 +166,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           python3 -m pip install setuptools >/dev/null 2>&1 || true
-          bun install --frozen-lockfile
+          # Same 504 retry guard as the unit job: GitHub's tarball API can fail
+          # while resolving git dependencies. Retry so a transient outage does
+          # not fail the job.
+          for i in 1 2 3; do
+            bun install --frozen-lockfile && break
+            echo "bun install failed (attempt $i), retrying…"
+            sleep 10
+          done
 
       - name: Read Playwright version
         id: playwright-version
