@@ -52,8 +52,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Linux CI runs inside the fork GHCR image, which already ships Bun, but
+      # the image's Node (24.4.0) differs from the host runner's setup-node "24"
+      # (24.18.x). The client codegen in `check:generated` is sensitive to the
+      # Node version, so re-run setup-node on Linux too to match the host toolchain.
       - name: Setup Node
-        if: runner.os != 'Linux'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
@@ -127,8 +130,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Linux CI runs inside the fork GHCR image, which already ships Bun, but
+      # the image's Node (24.4.0) differs from the host runner's setup-node "24"
+      # (24.18.x). The client codegen in `check:generated` is sensitive to the
+      # Node version, so re-run setup-node on Linux too to match the host toolchain.
       - name: Setup Node
-        if: runner.os != 'Linux'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # Playwright 1.59 hangs while extracting Chromium with Node 24.16.
