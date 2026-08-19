@@ -8,7 +8,18 @@ on:
       - packages/containers/**
       - .github/workflows/containers.yml
       - package.json
+  # Allow manual builds so the fork GHCR images (used by the test workflow's
+  # Linux container jobs) can be published without waiting for a `dev` push.
   workflow_dispatch:
+    inputs:
+      registry:
+        description: "GHCR registry owner (fork by default)"
+        required: false
+        default: "vibecoder880"
+      tag:
+        description: "Image tag"
+        required: false
+        default: "24.04"
 
 permissions:
   contents: read
@@ -16,10 +27,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     env:
-      REGISTRY: ghcr.io/${{ github.repository_owner }}
-      TAG: "24.04"
+      REGISTRY: ghcr.io/${{ github.event.inputs.registry || 'vibecoder880' }}
+      TAG: ${{ github.event.inputs.tag || '24.04' }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -38,8 +49,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The test workflow only needs the `base` + `bun-node` images (Node 24 + Bun
+      # preinstalled). Build/push those two so Linux CI can run in-container.
       - name: Build and push containers
-        run: bun ./packages/containers/script/build.ts --push
+        run: |
+          for image in base bun-node; do
+            echo "building ${REGISTRY}/build/${image}:${TAG}"
+            bun ./packages/containers/script/build.ts --push --only "$image"
+          done
         env:
           REGISTRY: ${{ env.REGISTRY }}
           TAG: ${{ env.TAG }}

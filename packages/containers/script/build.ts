@@ -11,6 +11,11 @@ const reg = process.env.REGISTRY ?? "ghcr.io/anomalyco"
 const tag = process.env.TAG ?? "24.04"
 const push = process.argv.includes("--push") || process.env.PUSH === "1"
 
+// Optional `--only <name>` filter so CI can build a single image (e.g. just the
+// `base`/`bun-node` pair the test workflow needs) instead of every image.
+const onlyIdx = process.argv.indexOf("--only")
+const only = onlyIdx !== -1 ? process.argv[onlyIdx + 1] : undefined
+
 const root = path.join(rootDir, "package.json")
 const pkg = await Bun.file(root).json()
 const manager = pkg.packageManager ?? ""
@@ -34,6 +39,7 @@ await setup()
 const platform = "linux/amd64,linux/arm64"
 
 for (const name of images) {
+  if (only && name !== only) continue
   const image = `${reg}/build/${name}:${tag}`
   const file = `packages/containers/${name}/Dockerfile`
   if (name === "base") {
