@@ -33,19 +33,27 @@ export const validateKit = Effect.fn("OCKit.validate")(function* (kit: Kit) {
 
   // Duplicate ids within a kind are silently collapsed by the index, so check
   // the source arrays directly — a duplicate means a malformed manifest.
-  const checkUnique = (values: ReadonlyArray<{ readonly id: string }>, kind: ValidationIssue["kind"], label: string) => {
+  const checkUnique = <T>(
+    values: ReadonlyArray<T>,
+    kind: ValidationIssue["kind"],
+    label: string,
+    idOf: (value: T) => string,
+  ) => {
     const seen = new Set<string>()
     for (const value of values) {
-      if (seen.has(value.id)) {
-        issues.push({ kind, id: value.id, message: `duplicate ${label} id "${value.id}"` })
+      const id = idOf(value)
+      if (seen.has(id)) {
+        issues.push({ kind, id, message: `duplicate ${label} id "${id}"` })
       }
-      seen.add(value.id)
+      seen.add(id)
     }
   }
-  checkUnique(kit.skills ?? [], "skill", "skill")
-  checkUnique(kit.agents ?? [], "agent", "agent")
-  checkUnique(kit.workflows ?? [], "workflow", "workflow")
-  checkUnique(kit.hooks ?? [], "hook", "hook")
+  checkUnique(kit.skills ?? [], "skill", "skill", (s) => s.id)
+  checkUnique(kit.agents ?? [], "agent", "agent", (a) => a.id)
+  checkUnique(kit.workflows ?? [], "workflow", "workflow", (w) => w.id)
+  // Hooks identify by `event`, not `id`, but a duplicated event is just as
+  // malformed (the index silently keeps the last), so check for that too.
+  checkUnique(kit.hooks ?? [], "hook", "hook", (h) => h.event)
 
   // Each workflow step must reference a declared skill.
   for (const workflow of kit.workflows ?? []) {

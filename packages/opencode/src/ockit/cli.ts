@@ -66,6 +66,9 @@ export const validateTarget = Effect.fn("Cli.kit.validate")(function* (args: Val
             `Invalid kit manifest in "${args.target}": ${err.message ?? "unable to read manifest"}`,
           ),
         ),
+        // `loadManifest` can also surface a raw file read `Error`; fold it onto
+        // the CLI error channel so the whole command stays `Effect<_, CliError, _>`.
+        Effect.catchAll((err) => fail(`Unable to read kit manifest in "${args.target}": ${String(err)}`)),
       )
     : yield* registry.require(args.target).pipe(
         Effect.catchTag("OCKit.NotFoundError", (err: NotFoundError) =>
@@ -76,13 +79,12 @@ export const validateTarget = Effect.fn("Cli.kit.validate")(function* (args: Val
       )
 
   const result = yield* validateKit(kit)
-  if (!result.ok) {
+  if (result.ok === false) {
     for (const issue of result.issues) {
       process.stderr.write(`  ✗ ${issue.kind} "${issue.id}": ${issue.message}` + EOL)
     }
     return yield* fail(`Kit "${kit.id}" is invalid (${result.issues.length} issue(s)).`)
   }
-
   const c = counts(kit)
   process.stdout.write(
     `Kit "${kit.id}" (${kit.name}@${kit.version}) is valid — skills:${c.skills} agents:${c.agents} workflows:${c.workflows} hooks:${c.hooks}` +

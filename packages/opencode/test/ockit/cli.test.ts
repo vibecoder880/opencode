@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, it, expect, spyOn } from "bun:test"
-import { Cause, Effect, Layer, Option } from "effect"
+import { Cause, Effect, Exit, Layer } from "effect"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { NotFoundError, Service as Registry } from "../../src/ockit/registry"
+import { CliError } from "../../src/cli/effect-cmd"
 import { listKits, validateTarget } from "../../src/ockit/cli"
 import type { Kit } from "../../src/ockit/types"
 
@@ -26,7 +27,7 @@ function registryLayer(kits: Kit[]) {
   return Layer.succeed(
     Registry,
     Registry.of({
-      all: Effect.succeed(kits),
+      all: () => Effect.succeed(kits),
       get: Effect.fn(function* (id: string) {
         return kits.find((k) => k.id === id)
       }),
@@ -35,7 +36,7 @@ function registryLayer(kits: Kit[]) {
         if (kit) return kit
         return yield* new NotFoundError({ id, available: kits.map((k) => k.id).toSorted() })
       }),
-      dirs: Effect.succeed([]),
+      dirs: () => Effect.succeed([]),
     }),
   )
 }
@@ -105,19 +106,20 @@ describe("oc kit validate", () => {
   })
 
   it("fails when the kit id is not installed", async () => {
-    const result = await Effect.runPromiseExit(
+    const exit = await Effect.runPromiseExit(
       validateTarget({ target: "missing" }).pipe(
         Effect.provide(registryLayer([ENGINEER])),
         Effect.provide(fsLayer),
       ),
     )
-    expect(result._tag).toBe("Failure")
     // `fail` fails the Effect without writing to stdout, so the message lives in
-    // the failure cause rather than `out()`. Pull the typed CliError from the
-    // cause and check its `message` field.
-    if (result._tag === "Failure") {
-      const cliError = Option.getOrThrow(Cause.failureOption(result.cause))
-      expect(cliError).toMatchObject({ _tag: "CliError", message: expect.stringContaining('No kit "missing" installed.') })
+    // the failure cause rather than `out()`. Squash the cause to the typed
+    // CliError and check its `message` field.
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const cliError = Cause.squash(exit.cause)
+      expect(cliError).toBeInstanceOf(CliError)
+      expect(cliError.message).toContain('No kit "missing" installed.')
     }
   })
 
@@ -128,19 +130,20 @@ describe("oc kit validate", () => {
       version: "1.0.0",
       workflows: [{ id: "ship", steps: [{ skill: "ghost" }] }],
     }
-    const result = await Effect.runPromiseExit(
+    const exit = await Effect.runPromiseExit(
       validateTarget({ target: "broken" }).pipe(
         Effect.provide(registryLayer([broken])),
         Effect.provide(fsLayer),
       ),
     )
-    expect(result._tag).toBe("Failure")
     // Per-issue lines go to stderr (see cli.ts), the summary `fail` carries the
-    // overall "is invalid" message in the cause.
+    // overall "is invalid" message in the failure cause.
     expect(errOut()).toContain('workflow "ship" references undeclared skill "ghost"')
-    if (result._tag === "Failure") {
-      const cliError = Option.getOrThrow(Cause.failureOption(result.cause))
-      expect(cliError).toMatchObject({ _tag: "CliError", message: expect.stringContaining('Kit "broken" is invalid') })
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const cliError = Cause.squash(exit.cause)
+      expect(cliError).toBeInstanceOf(CliError)
+      expect(cliError.message).toContain('Kit "broken" is invalid')
     }
   })
 })
