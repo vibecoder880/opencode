@@ -29,3 +29,4 @@ export {
 } from "./types"
 
 export { Service as Registry, node as registryNode } from "./registry"
+export * as OCKitCli from "./cli"
