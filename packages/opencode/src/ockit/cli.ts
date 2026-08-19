@@ -93,7 +93,7 @@ export const validateTarget = Effect.fn("Cli.kit.validate")(function* (args: Val
 const ListCommand = effectCmd({
   command: "list",
   describe: "list installed OC Kit kits",
-  handler: () => listKits.pipe(Effect.provide(registryLayer)),
+  handler: () => listKits().pipe(Effect.provide(registryLayer)),
 })
 
 const ValidateCommand = effectCmd({

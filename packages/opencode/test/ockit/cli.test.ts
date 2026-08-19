@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, spyOn } from "bun:test"
-import { Effect, Layer } from "effect"
+import { Cause, Effect, Layer, Option } from "effect"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { NotFoundError, Service as Registry } from "../../src/ockit/registry"
 import { listKits, validateTarget } from "../../src/ockit/cli"
@@ -50,16 +50,21 @@ const fsLayer = Layer.succeed(
 )
 
 let writes: string[]
+let errWrites: string[]
 let stdoutSpy: ReturnType<typeof spyOn>
 let stderrSpy: ReturnType<typeof spyOn>
 
 beforeEach(() => {
   writes = []
+  errWrites = []
   stdoutSpy = spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
     writes.push(String(chunk))
     return true
   })
-  stderrSpy = spyOn(process.stderr, "write").mockImplementation(() => true)
+  stderrSpy = spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+    errWrites.push(String(chunk))
+    return true
+  })
 })
 
 afterEach(() => {
@@ -71,9 +76,13 @@ function out() {
   return writes.join("")
 }
 
+function errOut() {
+  return errWrites.join("")
+}
+
 describe("oc kit list", () => {
   it("prints every installed kit with declaration counts", async () => {
-    await Effect.runPromise(listKits.pipe(Effect.provide(registryLayer([ENGINEER, DESIGNER]))))
+    await Effect.runPromise(listKits().pipe(Effect.provide(registryLayer([ENGINEER, DESIGNER]))))
     const text = out()
     expect(text).toContain("engineer (OC Engineer Kit@1.0.0)")
     expect(text).toContain("designer (Designer Kit@0.4.0)")
@@ -82,7 +91,7 @@ describe("oc kit list", () => {
   })
 
   it("reports when no kits are installed", async () => {
-    await Effect.runPromise(listKits.pipe(Effect.provide(registryLayer([]))))
+    await Effect.runPromise(listKits().pipe(Effect.provide(registryLayer([]))))
     expect(out()).toContain("No OC Kit kits installed.")
   })
 })
@@ -103,7 +112,13 @@ describe("oc kit validate", () => {
       ),
     )
     expect(result._tag).toBe("Failure")
-    expect(out()).toContain('No kit "missing" installed.')
+    // `fail` fails the Effect without writing to stdout, so the message lives in
+    // the failure cause rather than `out()`. Pull the typed CliError from the
+    // cause and check its `message` field.
+    if (result._tag === "Failure") {
+      const cliError = Option.getOrThrow(Cause.failureOption(result.cause))
+      expect(cliError).toMatchObject({ _tag: "CliError", message: expect.stringContaining('No kit "missing" installed.') })
+    }
   })
 
   it("reports validation issues for a broken installed kit", async () => {
@@ -120,6 +135,12 @@ describe("oc kit validate", () => {
       ),
     )
     expect(result._tag).toBe("Failure")
-    expect(out()).toContain('undeclared skill "ghost"')
+    // Per-issue lines go to stderr (see cli.ts), the summary `fail` carries the
+    // overall "is invalid" message in the cause.
+    expect(errOut()).toContain('workflow "ship" references undeclared skill "ghost"')
+    if (result._tag === "Failure") {
+      const cliError = Option.getOrThrow(Cause.failureOption(result.cause))
+      expect(cliError).toMatchObject({ _tag: "CliError", message: expect.stringContaining('Kit "broken" is invalid') })
+    }
   })
 })
