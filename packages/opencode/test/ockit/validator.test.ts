@@ -9,7 +9,7 @@ const VALID_KIT: Kit = {
   version: "1.0.0",
   runtime: "opencode",
   skills: [{ id: "plan", description: "Create an implementation plan" }],
-  agents: [{ id: "planner", role: "plans" }],
+  agents: [{ id: "planner", role: "plans", skills: ["plan"] }],
   workflows: [
     { id: "ship", steps: [{ skill: "plan" }] },
   ],
@@ -36,29 +36,37 @@ describe("ockit validator", () => {
     }
   })
 
-  it("flags an undeclared skill in the skills array", async () => {
-    // A skills entry whose id cannot be resolved by indexKit — exercises the
-    // per-kind resolution guard (e.g. a duplicate-id collision kept the first).
+  it("flags a duplicate skill id", async () => {
     const result = await Effect.runPromise(
       validateKit({ ...VALID_KIT, skills: [{ id: "plan" }, { id: "plan" }] }),
     )
+    expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.issues.some((i) => i.kind === "skill" && i.id === "plan")).toBe(true)
-    } else {
-      // duplicate id collapses to one entry; still valid structurally.
-      expect(result.ok).toBe(true)
     }
   })
 
-  it("flags a hook whose event is not declared", async () => {
+  it("flags an agent that references an undeclared skill", async () => {
     const broken: Kit = {
       ...VALID_KIT,
-      hooks: [{ event: "ghost-event", command: "echo nope" }],
+      agents: [{ id: "planner", role: "plans", skills: ["ghost-skill"] }],
     }
     const result = await Effect.runPromise(validateKit(broken))
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.issues.some((i) => i.kind === "hook" && i.id === "ghost-event")).toBe(true)
+      expect(result.issues.some((i) => i.kind === "agent" && i.id === "planner")).toBe(true)
+    }
+  })
+
+  it("flags a skill that references an undeclared agent", async () => {
+    const broken: Kit = {
+      ...VALID_KIT,
+      skills: [{ id: "plan", description: "Plan", agent: "ghost-agent" }],
+    }
+    const result = await Effect.runPromise(validateKit(broken))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.some((i) => i.kind === "skill" && i.id === "plan")).toBe(true)
     }
   })
 })
