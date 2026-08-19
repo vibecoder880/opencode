@@ -29,6 +29,7 @@ describe("Ripgrep", () => {
         }),
       (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
     ),
+    60_000, // bun per-test timeout (defaults to 5000); cold ripgrep binary download + Expand-Archive on Windows CI can exceed 30s
   )
 
   it.live("never includes git metadata", () =>
@@ -61,6 +62,7 @@ describe("Ripgrep", () => {
         }),
       (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
     ),
+    60_000, // bun per-test timeout (defaults to 5000); cold ripgrep binary download + Expand-Archive on Windows CI can exceed 30s
   )
   it.live("does not split surrogate pairs in oversized line previews", () =>
     Effect.acquireUseRelease(
@@ -81,5 +83,6 @@ describe("Ripgrep", () => {
         }),
       (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
     ),
+    60_000, // bun per-test timeout (defaults to 5000); cold ripgrep binary download + Expand-Archive on Windows CI can exceed 30s
   )
 })

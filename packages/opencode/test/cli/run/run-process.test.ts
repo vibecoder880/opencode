@@ -67,13 +67,22 @@ describe("opencode run (non-interactive subprocess)", () => {
   // makes the SDK call surface an error promptly so the process exits nonzero.
   // We assert nonzero exit AND wall-clock under the harness timeout — a hang
   // would expire the timeout and produce a different (signal-killed) failure.
+  //
+  // The 15s figure used to sit at both the subprocess kill timeout and the
+  // wall-clock bound, but loaded shared runners push `bun` subprocess startup
+  // (transpile of the CLI entry, plugin init, server boot, SDK call) past 15s,
+  // so appProc killed the child before a prompt (non-hanging) error could
+  // self-exit and the test failed on ~15.5s wall-clock. Raise the bound and the
+  // kill timeout together to 25s: a prompt error self-exits nonzero well under
+  // 25s; a true hang is killed by the 25s subprocess timeout and still fails
+  // `toBeLessThan(25_000)`. The 30s harness timeout remains the backstop.
   cliIt.concurrent(
     "exits nonzero promptly when the model is unknown (regression for #27371)",
     ({ opencode }) =>
       Effect.gen(function* () {
         const result = yield* opencode.run("say hi", {
           model: "test/nonexistent-model",
-          timeoutMs: 15_000,
+          timeoutMs: 25_000,
         })
         expect(result.exitCode).not.toBe(0)
         // Allow headroom for cold-start jitter on the CI container (the process
