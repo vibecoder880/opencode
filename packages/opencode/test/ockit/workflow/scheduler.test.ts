@@ -1,4 +1,4 @@
-import { describe, expect } from "bun:test"
+import { describe, expect, it } from "bun:test"
 import type { WorkflowStep } from "../../../src/ockit/types"
 import { planBatches, peek } from "../../../src/ockit/workflow/scheduler"
 

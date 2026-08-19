@@ -20,7 +20,7 @@ export function peek(steps: ReadonlyArray<WorkflowStep>): string | undefined {
  */
 export function planBatches(steps: ReadonlyArray<WorkflowStep>, concurrency: number): ReadonlyArray<ReadonlyArray<string>> {
   const limit = Math.max(1, concurrency)
-  const batches: ReadonlyArray<ReadonlyArray<string>> = []
+  const batches: string[][] = []
   const queue = steps.map(stepKey)
   while (queue.length > 0) {
     batches.push(queue.splice(0, limit))

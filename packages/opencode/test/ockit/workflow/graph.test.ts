@@ -31,7 +31,7 @@ function validateExit(workflow: Workflow) {
 describe("ockit workflow graph", () => {
   it.effect("accepts a workflow whose steps all resolve", () =>
     Effect.gen(function* () {
-      const exit = yield* validateExit({ id: "feature-development", steps: KIT.skills.map((s) => ({ skill: s.id })) })
+      const exit = yield* validateExit({ id: "feature-development", steps: (KIT.skills ?? []).map((s) => ({ skill: s.id })) })
       expect(exit._tag).toBe("Success")
     }))
 
