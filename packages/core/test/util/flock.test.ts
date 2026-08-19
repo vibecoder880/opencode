@@ -401,7 +401,11 @@ describe("util.flock", () => {
   })
 
   test("fails clearly on unwritable lock roots", async () => {
+    // This asserts a POSIX permission error (EACCES/EPERM). Windows has no
+    // POSIX permission model, and root bypasses permission bits entirely, so
+    // the assertion only holds for a non-root POSIX user.
     if (process.platform === "win32") return
+    if (process.getuid?.() === 0) return
 
     await using tmp = await tmpdir()
     const dir = path.join(tmp.path, "locks")
