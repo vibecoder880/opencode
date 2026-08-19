@@ -1,4 +1,4 @@
-import { describe, expect } from "bun:test"
+import { describe, it, expect } from "bun:test"
 import { Effect } from "effect"
 import { validateKit } from "../../src/ockit/validator"
 import type { Kit } from "../../src/ockit/types"

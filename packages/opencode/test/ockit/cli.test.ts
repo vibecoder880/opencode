@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, it, expect, spyOn } from "bun:test"
 import { Effect, Layer } from "effect"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { NotFoundError, Service as Registry } from "../../src/ockit/registry"
