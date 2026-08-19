@@ -20,7 +20,7 @@ export interface ValidationIssue {
   readonly message: string
 }
 
-export type ValidationResult = { readonly ok: true } | { readonly ok: false; readonly issues: ValidationIssue[] }
+export type ValidationResult = { readonly ok: boolean; readonly issues: readonly ValidationIssue[] }
 
 /**
  * Validate a decoded kit manifest. Returns `ok` when every declared id is unique
@@ -92,8 +92,7 @@ export const validateKit = Effect.fn("OCKit.validate")(function* (kit: Kit) {
     }
   }
 
-  if (issues.length > 0) return { ok: false, issues }
-  return { ok: true }
+  return { ok: issues.length === 0, issues }
 })
 
 // Re-export the consumed schemas so callers build fixtures without reaching into

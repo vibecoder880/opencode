@@ -117,7 +117,7 @@ describe("oc kit validate", () => {
     // CliError and check its `message` field.
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {
-      const cliError = Cause.squash(exit.cause)
+      const cliError = Cause.squash(exit.cause) as CliError
       expect(cliError).toBeInstanceOf(CliError)
       expect(cliError.message).toContain('No kit "missing" installed.')
     }
@@ -141,7 +141,7 @@ describe("oc kit validate", () => {
     expect(errOut()).toContain('workflow "ship" references undeclared skill "ghost"')
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {
-      const cliError = Cause.squash(exit.cause)
+      const cliError = Cause.squash(exit.cause) as CliError
       expect(cliError).toBeInstanceOf(CliError)
       expect(cliError.message).toContain('Kit "broken" is invalid')
     }

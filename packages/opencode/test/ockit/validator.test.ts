@@ -29,11 +29,9 @@ describe("ockit validator", () => {
     }
     const result = await Effect.runPromise(validateKit(broken))
     expect(result.ok).toBe(false)
-    if ("issues" in result) {
-      expect(result.issues).toHaveLength(1)
-      expect(result.issues[0]).toMatchObject({ kind: "workflow", id: "ship" })
-      expect(result.issues[0].message).toContain("missing-skill")
-    }
+    expect(result.issues).toHaveLength(1)
+    expect(result.issues[0]).toMatchObject({ kind: "workflow", id: "ship" })
+    expect(result.issues[0].message).toContain("missing-skill")
   })
 
   it("flags a duplicate skill id", async () => {
@@ -41,9 +39,7 @@ describe("ockit validator", () => {
       validateKit({ ...VALID_KIT, skills: [{ id: "plan" }, { id: "plan" }] }),
     )
     expect(result.ok).toBe(false)
-    if ("issues" in result) {
-      expect(result.issues.some((i) => i.kind === "skill" && i.id === "plan")).toBe(true)
-    }
+    expect(result.issues.some((i) => i.kind === "skill" && i.id === "plan")).toBe(true)
   })
 
   it("flags an agent that references an undeclared skill", async () => {
@@ -53,9 +49,7 @@ describe("ockit validator", () => {
     }
     const result = await Effect.runPromise(validateKit(broken))
     expect(result.ok).toBe(false)
-    if ("issues" in result) {
-      expect(result.issues.some((i) => i.kind === "agent" && i.id === "planner")).toBe(true)
-    }
+    expect(result.issues.some((i) => i.kind === "agent" && i.id === "planner")).toBe(true)
   })
 
   it("flags a skill that references an undeclared agent", async () => {
@@ -65,8 +59,6 @@ describe("ockit validator", () => {
     }
     const result = await Effect.runPromise(validateKit(broken))
     expect(result.ok).toBe(false)
-    if ("issues" in result) {
-      expect(result.issues.some((i) => i.kind === "skill" && i.id === "plan")).toBe(true)
-    }
+    expect(result.issues.some((i) => i.kind === "skill" && i.id === "plan")).toBe(true)
   })
 })

@@ -14,7 +14,7 @@ import type { Argv } from "yargs"
 import { EOL } from "os"
 import { Effect } from "effect"
 import { cmd } from "../cli/cmd/cmd"
-import { effectCmd, fail } from "../cli/effect-cmd"
+import { CliError, effectCmd, fail } from "../cli/effect-cmd"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Service as Registry, node as registryNode, NotFoundError } from "./registry"
@@ -68,7 +68,11 @@ export const validateTarget = Effect.fn("Cli.kit.validate")(function* (args: Val
         ),
         // `loadManifest` can also surface a raw file read `Error`; fold it onto
         // the CLI error channel so the whole command stays `Effect<_, CliError, _>`.
-        Effect.catchAll((err) => fail(`Unable to read kit manifest in "${args.target}": ${String(err)}`)),
+        Effect.mapError((err) =>
+          err instanceof CliError
+            ? err
+            : new CliError({ message: `Unable to read kit manifest in "${args.target}": ${String(err)}` }),
+        ),
       )
     : yield* registry.require(args.target).pipe(
         Effect.catchTag("OCKit.NotFoundError", (err: NotFoundError) =>
