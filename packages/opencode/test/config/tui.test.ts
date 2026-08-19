@@ -311,6 +311,11 @@ it.instance("skips migration when tui.json already exists", () =>
 it.instance("continues loading tui config when legacy source cannot be stripped", () =>
   withCleanState(
     Effect.gen(function* () {
+      // The test relies on a 0o444 legacy file staying read-only so the
+      // migration cannot strip it. Root bypasses permission bits, so the file
+      // gets rewritten and the assertion fails — skip under uid 0 (the CI
+      // GHCR container runs as root).
+      if (process.getuid?.() === 0) return
       const fs = yield* FSUtil.Service
       const test = yield* TestInstance
       const source = path.join(test.directory, "opencode.json")

@@ -254,6 +254,11 @@ describe("tool.write", () => {
   describe("error handling", () => {
     it.instance("throws error when OS denies write access", () =>
       Effect.gen(function* () {
+        // This asserts a POSIX permission error when writing a 0o444 file. Root
+        // bypasses permission bits, so the write succeeds instead of failing —
+        // the assertion only holds for a non-root POSIX user (e.g. it is skipped
+        // under the CI GHCR container, which runs as uid 0).
+        if (process.getuid?.() === 0) return
         const test = yield* TestInstance
         const readonlyPath = path.join(test.directory, "readonly.txt")
         yield* Effect.promise(() => fs.writeFile(readonlyPath, "test", "utf-8"))
