@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - ci-ghcr-linux
   pull_request:
   workflow_dispatch:
 
