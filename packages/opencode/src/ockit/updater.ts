@@ -99,7 +99,9 @@ export const previewUpdate = Effect.fn("OCKit.update.preview")(function* (
   )
 
   const staging = path.join(root, ".oc", "state", `update-${kitId}-${Date.now()}`)
-  yield* fsutil.ensureDir(staging)
+  yield* fsutil.ensureDir(staging).pipe(
+    Effect.mapError((err) => new UpdateError({ kind: "write", kit: kitId, detail: err.message })),
+  )
   return yield* Effect.gen(function* () {
     const files = yield* downloadAndExtract({ http, kitId, release, staging, extract: opts.extract })
     // Validate the staged manifest before committing to any plan.
@@ -108,7 +110,12 @@ export const previewUpdate = Effect.fn("OCKit.update.preview")(function* (
       Effect.mapError((err) => new UpdateError({ kind: "manifest", kit: kitId, detail: err.message ?? "invalid manifest" })),
     )
     return { release, files }
-  }).pipe(Effect.ensuring(fsutil.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)))
+  }).pipe(
+    Effect.mapError((err) =>
+      err instanceof UpdateError ? err : new UpdateError({ kind: "write", kit: kitId, detail: err.message }),
+    ),
+    Effect.ensuring(fsutil.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)),
+  )
 })
 
 /**
@@ -166,18 +173,24 @@ export const update = Effect.fn("OCKit.update")(function* (
   }
   const preUpdate: Record<string, string> = {}
   for (const rel of toReplace.keys()) {
-    const existing = yield* fsutil.readFileStringSafe(path.join(root, rel))
+    const existing = yield* fsutil.readFileStringSafe(path.join(root, rel)).pipe(
+      Effect.mapError((err) => new UpdateError({ kind: "write", kit: kitId, detail: err.message })),
+    )
     if (existing !== undefined) preUpdate[rel] = existing
   }
   if (Object.keys(preUpdate).length > 0) {
-    yield* backupOwnedFiles(root, kitId, preUpdate)
+    yield* backupOwnedFiles(root, kitId, preUpdate).pipe(
+      Effect.mapError((err) => new UpdateError({ kind: "write", kit: kitId, detail: err.message })),
+    )
     yield* Checkpoint.create({
       root,
       kit: kitId,
       kitVersion: release.version,
       operation: "update",
       files: preUpdate,
-    })
+    }).pipe(
+      Effect.mapError((err) => new UpdateError({ kind: "write", kit: kitId, detail: err.message })),
+    )
   }
 
   // Apply the plan: replace files we own and the user has not touched. Never
@@ -228,7 +241,9 @@ export const rollback = Effect.fn("OCKit.update.rollback")(function* (
   const fsutil = yield* FSUtil.Service
   const root = opts.root ?? defaultRoot()
 
-  const ids = yield* Checkpoint.list(root, kitId)
+  const ids = yield* Checkpoint.list(root, kitId).pipe(
+    Effect.mapError((err) => new UpdateError({ kind: "rollback", kit: kitId, detail: err.message })),
+  )
   if (ids.length === 0) {
     return yield* new UpdateError({ kind: "rollback", kit: kitId, detail: `No checkpoints found for "${kitId}"` })
   }
@@ -236,15 +251,23 @@ export const rollback = Effect.fn("OCKit.update.rollback")(function* (
     Effect.mapError((err) => new UpdateError({ kind: "rollback", kit: kitId, detail: err.message })),
   )
 
-  const backupDir = yield* latestBackupDir(root, kitId)
+  const backupDir = yield* latestBackupDir(root, kitId).pipe(
+    Effect.mapError((err) => new UpdateError({ kind: "rollback", kit: kitId, detail: err.message })),
+  )
   const restored: string[] = []
   const skipped: string[] = []
   for (const [file, hash] of Object.entries(cp.files)) {
     const target = path.join(root, file)
-    const current = yield* fsutil.readFileStringSafe(target)
+    const current = yield* fsutil.readFileStringSafe(target).pipe(
+      Effect.mapError((err) => new UpdateError({ kind: "rollback", kit: kitId, detail: err.message })),
+    )
     if (current === undefined || Hash.sha256(current) !== hash) {
       // The file diverges from checkpoint state — restore the backup content.
-      const content = backupDir ? yield* fsutil.readFileStringSafe(path.join(backupDir, file)) : undefined
+      const content = backupDir
+        ? yield* fsutil.readFileStringSafe(path.join(backupDir, file)).pipe(
+            Effect.mapError((err) => new UpdateError({ kind: "rollback", kit: kitId, detail: err.message })),
+          )
+        : undefined
       if (content === undefined) {
         skipped.push(file)
         continue

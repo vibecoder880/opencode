@@ -18,6 +18,7 @@ import { Process } from "../util/process"
 import path from "path"
 import { resolveLatest, ReleaseInfo, type RemoteRegistrySource } from "./registry-remote"
 import { loadOwnership, saveOwnership, claim } from "./ownership"
+import type { OwnershipEntry } from "./types"
 import { Checkpoint } from "./checkpoint"
 import { loadManifest } from "./manifest"
 
@@ -47,7 +48,7 @@ export interface InstallOptions {
   readonly http?: HttpClient.HttpClient
   readonly root?: string
   /** Test seam: extract archive bytes into staged files. Defaults to the real extraction util. */
-  readonly extract?: (archive: Uint8Array, dest: string) => Effect.Effect<void, InstallerError>
+  readonly extract?: (archive: Uint8Array, dest: string) => Effect.Effect<void, InstallerError | FSUtil.Error, FSUtil.Service>
 }
 
 const defaultRoot = () => Global.Path.config
@@ -55,7 +56,9 @@ const defaultRoot = () => Global.Path.config
 export const COLLECTED_ROOT_DIR = "kits"
 
 const download = Effect.fn("OCKit.install.download")(function* (http: HttpClient.HttpClient, url: string) {
-  const response = yield* http.execute(HttpClientRequest.get(url))
+  const response = yield* http.execute(HttpClientRequest.get(url)).pipe(
+    Effect.mapError((err) => new InstallerError({ kind: "fetch", kit: url, detail: `HTTP request failed: ${String(err)}` })),
+  )
   if (response.status !== 200) {
     return yield* new InstallerError({ kind: "fetch", kit: url, detail: `HTTP ${response.status}` })
   }
@@ -69,19 +72,20 @@ export const collectFiles = Effect.fn("OCKit.install.collectFiles")(function* (
   dir: string,
 ) {
   const result: Record<string, string> = {}
-  const walk = Effect.fn("OCKit.install.collectFiles.walk")(function* (current: string, rel: string) {
-    const entries = yield* fs.readDirectoryEntries(current)
-    for (const entry of entries) {
-      const childPath = path.join(current, entry.name)
-      const childRel = rel ? `${rel}/${entry.name}` : entry.name
-      if (entry.type === "directory") {
-        yield* walk(childPath, childRel)
-      } else if (entry.type === "file") {
-        const content = yield* fs.readFileStringSafe(childPath)
-        if (content !== undefined) result[childRel] = content
+  const walk = (current: string, rel: string): Effect.Effect<void, FSUtil.Error> =>
+    Effect.gen(function* () {
+      const entries = yield* fs.readDirectoryEntries(current)
+      for (const entry of entries) {
+        const childPath = path.join(current, entry.name)
+        const childRel = rel ? `${rel}/${entry.name}` : entry.name
+        if (entry.type === "directory") {
+          yield* walk(childPath, childRel)
+        } else if (entry.type === "file") {
+          const content = yield* fs.readFileStringSafe(childPath)
+          if (content !== undefined) result[childRel] = content
+        }
       }
-    }
-  })
+    })
   yield* walk(dir, "")
   return result
 })
@@ -146,7 +150,7 @@ export interface DownloadExtractOptions {
   readonly kitId: string
   readonly release: ReleaseInfo
   readonly staging: string
-  readonly extract?: (archive: Uint8Array, dest: string) => Effect.Effect<void, InstallerError>
+  readonly extract?: (archive: Uint8Array, dest: string) => Effect.Effect<void, InstallerError | FSUtil.Error, FSUtil.Service>
 }
 
 /**
@@ -173,7 +177,7 @@ export const downloadAndExtract = Effect.fn("OCKit.install.downloadAndExtract")(
   // Extract
   yield* extract(archive, opts.staging).pipe(
     Effect.mapError((err) =>
-      new InstallerError({ kind: "extract", kit: opts.kitId, version: opts.release.version, detail: err.detail }),
+      new InstallerError({ kind: "extract", kit: opts.kitId, version: opts.release.version, detail: err instanceof Error ? err.message : err.detail }),
     ),
   )
 
@@ -234,7 +238,9 @@ export const install = Effect.fn("OCKit.install")(function* (
 
   // 2-5. Download → verify → extract → collect (staging removed on exit)
   const staging = path.join(root, ".oc", "state", `stage-${kitId}-${Date.now()}`)
-  yield* fsutil.ensureDir(staging)
+  yield* fsutil.ensureDir(staging).pipe(
+    Effect.mapError((err) => new InstallerError({ kind: "write", kit: kitId, version: release.version, detail: err.message })),
+  )
 
   return yield* Effect.gen(function* () {
     const files = yield* downloadAndExtract({ http, kitId, release, staging, extract })
@@ -312,7 +318,14 @@ export const install = Effect.fn("OCKit.install")(function* (
       filesInstalled: Object.keys(files),
       mode: opts.dev ? "development" : "production",
     })
-  }).pipe(Effect.ensuring(fsutil.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)))
+  }).pipe(
+    Effect.mapError((err) =>
+      err instanceof InstallerError
+        ? err
+        : new InstallerError({ kind: "write", kit: kitId, version: release.version, detail: err.message }),
+    ),
+    Effect.ensuring(fsutil.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)),
+  )
 })
 
 /** Uninstall a kit: remove its directory and drop its ownership rows. */
@@ -327,11 +340,13 @@ export const uninstall = Effect.fn("OCKit.install.uninstall")(function* (kitId: 
   const manifest = yield* loadOwnership(root).pipe(
     Effect.mapError((err) => new InstallerError({ kind: "write", kit: kitId, detail: err.message })),
   )
-  const next: Record<string, { owner: string; kit: string; version: string; sha256: string }> = {}
+  const next: Record<string, OwnershipEntry> = {}
   for (const [file, entry] of Object.entries(manifest.files)) {
     if (entry.kit !== kitId) next[file] = entry
   }
-  yield* fsutil.remove(kitDir, { recursive: true, force: true })
+  yield* fsutil.remove(kitDir, { recursive: true, force: true }).pipe(
+    Effect.mapError((err) => new InstallerError({ kind: "write", kit: kitId, detail: err.message })),
+  )
   yield* saveOwnership(root, { files: next }).pipe(
     Effect.mapError((err) => new InstallerError({ kind: "write", kit: kitId, detail: `failed to save ownership: ${err.message}` })),
   )

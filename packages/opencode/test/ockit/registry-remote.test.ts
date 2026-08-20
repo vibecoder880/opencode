@@ -39,7 +39,9 @@ function resolve<const O extends { source?: RemoteRegistrySource; version?: stri
   handler: (url: string) => Response,
   opts?: O,
 ) {
-  return resolveLatest("engineer", { source: SOURCE, ...opts, http: fakeClient(handler) })
+  return resolveLatest("engineer", { source: SOURCE, ...opts }).pipe(
+    Effect.provideService(HttpClient.HttpClient, fakeClient(handler)),
+  )
 }
 
 const EVEN_HEX = "a".repeat(64)

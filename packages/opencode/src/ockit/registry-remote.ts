@@ -109,7 +109,9 @@ export function compatibleWithRuntime(minOpencode: string | undefined): boolean 
 
 const fetchJson = <S extends Schema.Top>(schema: S) =>
   Effect.fn("OCKit.registry.fetchJson")(function* (http: HttpClient.HttpClient, url: string) {
-    const response = yield* http.execute(HttpClientRequest.get(url).pipe(HttpClientRequest.acceptJson))
+    const response = yield* http.execute(HttpClientRequest.get(url).pipe(HttpClientRequest.acceptJson)).pipe(
+      Effect.mapError((err) => new ReleaseError({ kind: "network", id: url, detail: `HTTP request failed: ${String(err)}` })),
+    )
     if (response.status !== 200) {
       return yield* new ReleaseError({ kind: "not-found", id: url, detail: `HTTP ${response.status}` })
     }
@@ -120,7 +122,9 @@ const fetchJson = <S extends Schema.Top>(schema: S) =>
   })
 
 const fetchText = Effect.fn("OCKit.registry.fetchText")(function* (http: HttpClient.HttpClient, url: string) {
-  const response = yield* http.execute(HttpClientRequest.get(url))
+  const response = yield* http.execute(HttpClientRequest.get(url)).pipe(
+    Effect.mapError((err) => new ReleaseError({ kind: "network", id: url, detail: `HTTP request failed: ${String(err)}` })),
+  )
   if (response.status !== 200) {
     return yield* new ReleaseError({ kind: "not-found", id: url, detail: `HTTP ${response.status}` })
   }
@@ -161,7 +165,16 @@ export const resolveLatest = Effect.fn("OCKit.registry.resolveLatest")(function*
           : err,
       ),
     )
-    return yield* releaseInfoCore(http, source, id, release, true)
+    const info = yield* releaseInfoCore(http, source, id, release, true)
+    if (info === undefined) {
+      return yield* new ReleaseError({
+        kind: "incompatible",
+        id,
+        version: opts.version,
+        detail: `Release ${opts.version} is not compatible with OpenCode ${InstallationVersion}`,
+      })
+    }
+    return info
   }
 
   const releases = yield* fetchJson(Schema.Array(GitHubRelease))(http, makeApiUrl(source)).pipe(
@@ -263,10 +276,10 @@ const releaseInfoCore = Effect.fn("OCKit.registry.releaseInfoCore")(function* (
   })
 })
 
-function whenIncompatible<T>(hard: boolean, error: ReleaseError): Effect.Effect<T, ReleaseError> {
+function whenIncompatible(hard: boolean, error: ReleaseError): Effect.Effect<ReleaseInfo | undefined, ReleaseError> {
   // In "soft" mode (used while scanning the release list) an incompatible
   // release is skipped rather than aborting the whole resolution.
-  return hard ? Effect.fail(error) : Effect.succeed(undefined as never)
+  return hard ? Effect.fail(error) : Effect.succeed(undefined)
 }
 
 const readKitMinOpencode = Effect.fn("OCKit.registry.readKitMinOpencode")(function* (
