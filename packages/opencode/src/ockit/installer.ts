@@ -22,7 +22,7 @@ import { Checkpoint } from "./checkpoint"
 import { loadManifest } from "./manifest"
 
 export class InstallerError extends Schema.TaggedErrorClass<InstallerError>()("OCKitInstallerError", {
-  kind: Schema.Literal("fetch", "checksum", "extract", "conflict", "write", "manifest", "not-found"),
+  kind: Schema.Literals(["fetch", "checksum", "extract", "conflict", "write", "manifest", "not-found"]),
   kit: Schema.String,
   detail: Schema.String,
   version: Schema.optional(Schema.String),
@@ -37,7 +37,7 @@ export class InstallSummary extends Schema.Class<InstallSummary>("OCKit.InstallS
   version: Schema.String,
   dir: Schema.String,
   filesInstalled: Schema.Array(Schema.String),
-  mode: Schema.Literal("production", "development"),
+  mode: Schema.Literals(["production", "development"]),
 }) {}
 
 export interface InstallOptions {
@@ -67,7 +67,7 @@ const download = Effect.fn("OCKit.install.download")(function* (http: HttpClient
 export const collectFiles = Effect.fn("OCKit.install.collectFiles")(function* (
   fs: FSUtil.Interface,
   dir: string,
-): Effect.Effect<Record<string, string>, InstallerError> {
+) {
   const result: Record<string, string> = {}
   const walk = Effect.fn("OCKit.install.collectFiles.walk")(function* (current: string, rel: string) {
     const entries = yield* fs.readDirectoryEntries(current)
@@ -118,9 +118,8 @@ export const extractArchive = Effect.fn("OCKit.install.extractArchive")(function
       )
     } else {
       yield* Effect.promise(() => Process.run(["tar", "-xzf", tmpFile, "-C", dest])).pipe(
-        Effect.orElse(() => Effect.promise(() => Process.run(["unzip", "-o", "-q", tmpFile, "-d", dest]))).pipe(
-          Effect.mapError(() => new InstallerError({ kind: "extract", kit: dest, detail: "tar/unzip extraction failed" })),
-        ),
+        Effect.catch(() => Effect.promise(() => Process.run(["unzip", "-o", "-q", tmpFile, "-d", dest]))),
+        Effect.mapError(() => new InstallerError({ kind: "extract", kit: dest, detail: "tar/unzip extraction failed" })),
       )
     }
   } finally {
@@ -157,7 +156,7 @@ export interface DownloadExtractOptions {
  */
 export const downloadAndExtract = Effect.fn("OCKit.install.downloadAndExtract")(function* (
   opts: DownloadExtractOptions,
-): Effect.Effect<Record<string, string>, InstallerError> {
+) {
   const fsutil = yield* FSUtil.Service
   const extract = opts.extract ?? extractArchive
 
@@ -211,7 +210,7 @@ export const backupOwnedFiles = Effect.fn("OCKit.install.backupOwnedFiles")(func
 export const install = Effect.fn("OCKit.install")(function* (
   kitId: string,
   opts: InstallOptions = {},
-): Effect.Effect<InstallSummary, InstallerError> {
+) {
   const fsutil = yield* FSUtil.Service
   const http = opts.http ?? (yield* HttpClient.HttpClient)
   const root = opts.root ?? defaultRoot()
@@ -317,7 +316,7 @@ export const install = Effect.fn("OCKit.install")(function* (
 })
 
 /** Uninstall a kit: remove its directory and drop its ownership rows. */
-export const uninstall = Effect.fn("OCKit.install.uninstall")(function* (kitId: string): Effect.Effect<void, InstallerError> {
+export const uninstall = Effect.fn("OCKit.install.uninstall")(function* (kitId: string) {
   const fsutil = yield* FSUtil.Service
   const root = defaultRoot()
   const kitDir = path.join(root, COLLECTED_ROOT_DIR, kitId)

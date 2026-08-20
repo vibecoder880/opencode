@@ -39,7 +39,7 @@ function registryLayer() {
   return Layer.succeed(
     Registry,
     Registry.of({
-      all: () => Effect.succeed([] as unknown[]),
+      all: () => Effect.succeed([]),
       get: () => Effect.succeed(undefined),
       require: Effect.fn(function* () {
         return yield* new NotFoundError({ id: "missing", available: [] })

@@ -17,7 +17,7 @@ import { resolveLatest, type RemoteRegistrySource } from "./registry-remote"
 import { COLLECTED_ROOT_DIR } from "./installer"
 
 export class DoctorItem extends Schema.Class<DoctorItem>("OCKit.DoctorItem")({
-  severity: Schema.Literal("pass", "warn", "fail"),
+  severity: Schema.Literals(["pass", "warn", "fail"]),
   section: Schema.String,
   message: Schema.String,
 }) {}
@@ -48,7 +48,7 @@ const defaultRoot = () => Global.Path.config
  * Run a doctor health check, producing a typed report. The config section reads
  * `oc_kit` presence; the registry section checks reachability unless offline.
  */
-export const doctor = Effect.fn("OCKit.doctor")(function* (opts: DoctorOptions = {}): Effect.Effect<DoctorReport> {
+export const doctor = Effect.fn("OCKit.doctor")(function* (opts: DoctorOptions = {}) {
   const fsutil = yield* FSUtil.Service
   const root = opts.root ?? defaultRoot()
   const offline = opts.offline === true

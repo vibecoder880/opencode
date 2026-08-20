@@ -103,9 +103,8 @@ describe("ockit installer", () => {
     Effect.gen(function* () {
       const content = new TextEncoder().encode("hello world")
       const hex = Hash.sha256(Buffer.from(content))
-      yield* verifySha256(content, hex) as unknown as Effect.Effect<void>
-      const bad = verifySha256(content, "b".repeat(64)).pipe(Effect.flip) as unknown as Effect.Effect<InstallerError>
-      const err = yield* bad
+      yield* verifySha256(content, hex).pipe(Effect.exit)
+      const err = yield* verifySha256(content, "b".repeat(64)).pipe(Effect.flip)
       expect(err.kind).toBe("checksum")
     }),
   )

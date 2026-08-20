@@ -26,7 +26,7 @@ import {
 } from "./installer"
 
 export class UpdateError extends Schema.TaggedErrorClass<UpdateError>()("OCKitUpdateError", {
-  kind: Schema.Literal("not-found", "fetch", "checksum", "extract", "conflict", "write", "rollback", "manifest"),
+  kind: Schema.Literals(["not-found", "fetch", "checksum", "extract", "conflict", "write", "rollback", "manifest"]),
   kit: Schema.String,
   detail: Schema.String,
   version: Schema.optional(Schema.String),
@@ -77,7 +77,7 @@ const kitRelToOwned = (kitRel: string, kitId: string) => `${COLLECTED_ROOT_DIR}/
 export const previewUpdate = Effect.fn("OCKit.update.preview")(function* (
   kitId: string,
   opts: UpdateOptions = {},
-): Effect.Effect<{ release: ReleaseInfo; files: Record<string, string> }, UpdateError> {
+) {
   const fsutil = yield* FSUtil.Service
   const http = opts.http ?? (yield* HttpClient.HttpClient)
   const root = opts.root ?? defaultRoot()
@@ -122,7 +122,7 @@ export const previewUpdate = Effect.fn("OCKit.update.preview")(function* (
 export const update = Effect.fn("OCKit.update")(function* (
   kitId: string,
   opts: UpdateOptions = {},
-): Effect.Effect<UpdateSummary, UpdateError> {
+) {
   const fsutil = yield* FSUtil.Service
   const http = opts.http ?? (yield* HttpClient.HttpClient)
   const root = opts.root ?? defaultRoot()
@@ -224,7 +224,7 @@ export const update = Effect.fn("OCKit.update")(function* (
 export const rollback = Effect.fn("OCKit.update.rollback")(function* (
   kitId: string,
   opts: UpdateOptions = {},
-): Effect.Effect<UpdateSummary, UpdateError> {
+) {
   const fsutil = yield* FSUtil.Service
   const root = opts.root ?? defaultRoot()
 

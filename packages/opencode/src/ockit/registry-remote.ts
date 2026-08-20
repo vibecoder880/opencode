@@ -53,7 +53,7 @@ export const CHECKSUMS_ASSET_NAME = "checksums.txt"
  * for transport failures.
  */
 export class ReleaseError extends Schema.TaggedErrorClass<ReleaseError>()("OCKit.ReleaseError", {
-  kind: Schema.Literal("not-found", "network", "decode", "checksum", "incompatible"),
+  kind: Schema.Literals(["not-found", "network", "decode", "checksum", "incompatible"]),
   id: Schema.String,
   detail: Schema.String,
   version: Schema.optional(Schema.String),
@@ -107,20 +107,17 @@ export function compatibleWithRuntime(minOpencode: string | undefined): boolean 
   return semver.gte(runtime, minOpencode, { loose: true })
 }
 
-const fetchJson = Effect.fn("OCKit.registry.fetchJson")(function* (
-  http: HttpClient.HttpClient,
-  url: string,
-  schema: Schema.Top,
-) {
-  const response = yield* http.execute(HttpClientRequest.get(url).pipe(HttpClientRequest.acceptJson))
-  if (response.status !== 200) {
-    return yield* new ReleaseError({ kind: "not-found", id: url, detail: `HTTP ${response.status}` })
-  }
-  const data = yield* HttpClientResponse.schemaBodyJson(schema)(response).pipe(
-    Effect.mapError((err) => new ReleaseError({ kind: "decode", id: url, detail: `Invalid JSON: ${String(err)}` })),
-  )
-  return data as never
-})
+const fetchJson = <S extends Schema.Top>(schema: S) =>
+  Effect.fn("OCKit.registry.fetchJson")(function* (http: HttpClient.HttpClient, url: string) {
+    const response = yield* http.execute(HttpClientRequest.get(url).pipe(HttpClientRequest.acceptJson))
+    if (response.status !== 200) {
+      return yield* new ReleaseError({ kind: "not-found", id: url, detail: `HTTP ${response.status}` })
+    }
+    const data = yield* HttpClientResponse.schemaBodyJson(schema)(response).pipe(
+      Effect.mapError((err) => new ReleaseError({ kind: "decode", id: url, detail: `Invalid JSON: ${String(err)}` })),
+    )
+    return data
+  })
 
 const fetchText = Effect.fn("OCKit.registry.fetchText")(function* (http: HttpClient.HttpClient, url: string) {
   const response = yield* http.execute(HttpClientRequest.get(url))
@@ -157,7 +154,7 @@ export const resolveLatest = Effect.fn("OCKit.registry.resolveLatest")(function*
   const source = resolveSource(opts.source)
 
   if (opts.version) {
-    const release = yield* fetchJson(http, `${makeApiUrl(source)}/tags/${opts.version}`, GitHubRelease).pipe(
+    const release = yield* fetchJson(GitHubRelease)(http, `${makeApiUrl(source)}/tags/${opts.version}`).pipe(
       Effect.mapError((err) =>
         err instanceof ReleaseError && err.kind === "not-found"
           ? new ReleaseError({ kind: "not-found", id, version: opts.version, detail: `Release tag not found` })
@@ -167,7 +164,7 @@ export const resolveLatest = Effect.fn("OCKit.registry.resolveLatest")(function*
     return yield* releaseInfoCore(http, source, id, release, true)
   }
 
-  const releases = yield* fetchJson(http, makeApiUrl(source), Schema.Array(GitHubRelease)).pipe(
+  const releases = yield* fetchJson(Schema.Array(GitHubRelease))(http, makeApiUrl(source)).pipe(
     Effect.mapError((err) =>
       err instanceof ReleaseError && err.kind === "not-found"
         ? new ReleaseError({
