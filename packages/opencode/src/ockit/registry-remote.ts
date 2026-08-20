@@ -128,7 +128,9 @@ const fetchText = Effect.fn("OCKit.registry.fetchText")(function* (http: HttpCli
   if (response.status !== 200) {
     return yield* new ReleaseError({ kind: "not-found", id: url, detail: `HTTP ${response.status}` })
   }
-  return yield* response.text
+  return yield* response.text.pipe(
+    Effect.mapError((err) => new ReleaseError({ kind: "network", id: url, detail: `Failed to read response body: ${String(err)}` })),
+  )
 })
 
 // Treat a not-found fetch as an optional asset: succeeds with undefined rather

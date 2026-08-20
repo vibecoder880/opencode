@@ -11,7 +11,6 @@ import { HttpClient } from "effect/unstable/http"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Hash } from "@opencode-ai/core/util/hash"
 import { Global } from "@opencode-ai/core/global"
-import { readdir } from "fs/promises"
 import path from "path"
 import { resolveLatest, type ReleaseInfo, type RemoteRegistrySource } from "./registry-remote"
 import { loadOwnership, saveOwnership, planUpdate, claim } from "./ownership"
@@ -297,8 +296,8 @@ export const latestBackupDir = Effect.fn("OCKit.update.latestBackupDir")(functio
   const base = path.join(root, ".oc", "state", "rollback", kit)
   const fsutil = yield* FSUtil.Service
   if (!(yield* fsutil.isDir(base))) return undefined
-  const names = yield* Effect.promise(() => readdir(base))
-  const dirs = names.filter((name) => /^\d+-/.test(name)).sort().reverse()
+  const entries = yield* fsutil.readDirectoryEntries(base)
+  const dirs = entries.map((e) => e.name).filter((name) => /^\d+-/.test(name)).sort().reverse()
   return dirs.length > 0 ? path.join(base, dirs[0]) : undefined
 })
 

@@ -177,7 +177,7 @@ export const downloadAndExtract = Effect.fn("OCKit.install.downloadAndExtract")(
   // Extract
   yield* extract(archive, opts.staging).pipe(
     Effect.mapError((err) =>
-      new InstallerError({ kind: "extract", kit: opts.kitId, version: opts.release.version, detail: err instanceof Error ? err.message : err.detail }),
+      new InstallerError({ kind: "extract", kit: opts.kitId, version: opts.release.version, detail: err.message }),
     ),
   )
 
