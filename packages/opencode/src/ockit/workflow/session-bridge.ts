@@ -76,13 +76,13 @@ export const triggerWorkflow = Effect.fn("OCKit.session.triggerWorkflow")(functi
   const runId = options?.runId ?? `${workflow.id}-${Date.now()}`
   const at = options?.at ?? new Date().toISOString()
 
-  // Record the run as PENDING before execution starts.
+  // Record the run as CREATED before execution starts.
   const pendingRun: SessionWorkflowRun = {
     runId,
     workflowId: workflow.id,
     sessionId,
     kitId: kit.id,
-    state: "PENDING",
+    state: "CREATED",
     startedAt: at,
   }
   recordRun(pendingRun)
@@ -122,7 +122,7 @@ export const triggerAndReport = Effect.fn("OCKit.session.triggerAndReport")(func
 
   const statusEmoji = summary.state === "COMPLETED" ? "✅"
     : summary.state === "FAILED" ? "❌"
-    : summary.state === "RECOVERED" ? "🔄"
+    : summary.recovered ? "🔄"
     : "⏳"
 
   return {

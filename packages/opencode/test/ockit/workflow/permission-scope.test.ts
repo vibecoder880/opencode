@@ -2,9 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   resolveStepPermissions,
   isToolAllowed,
-  isAgentAllowed,
   filterAllowedTools,
-  filterAllowedAgents,
 } from "../../../src/ockit/workflow/permission-scope"
 import type { Kit, WorkflowStep } from "../../../src/ockit/types"
 
@@ -14,58 +12,63 @@ const BASE_KIT: Kit = {
   version: "1.0.0",
   runtime: "opencode",
   skills: [
-    { id: "skill-a", description: "Skill A" },
-    { id: "skill-b", description: "Skill B", permissions: { allowedTools: ["read", "write"], timeout: 30 } },
+    { id: "skill-a", name: "Skill A", description: "Skill A" },
+    { id: "skill-b", name: "Skill B", description: "Skill B", permissions: { read: "allow", write: "allow" } },
   ],
   agents: [],
   hooks: [],
 }
 
-const STEP_A: WorkflowStep = { run: "skill-a" }
-const STEP_B: WorkflowStep = { run: "skill-b" }
-const STEP_RESTRICTED: WorkflowStep = { run: "skill-a", allowedTools: ["read"], networkAccess: false }
+const STEP_A: WorkflowStep = { skill: "skill-a" }
+const STEP_B: WorkflowStep = { skill: "skill-b" }
+const STEP_RESTRICTED: WorkflowStep = { skill: "skill-a" }
 
 describe("permission-scope", () => {
-  test("resolveStepPermissions returns defaults when no permissions declared", () => {
+  test("resolveStepPermissions returns empty permissions when no skill permissions declared", () => {
     const perms = resolveStepPermissions(STEP_A, BASE_KIT)
-    expect(perms.allowedTools).toEqual([])
-    expect(perms.allowedAgents).toEqual([])
-    expect(perms.timeout).toBeUndefined()
-    expect(perms.networkAccess).toBe(true)
+    expect(perms.toolPermissions).toEqual({})
   })
 
   test("resolveStepPermissions uses skill-level permissions", () => {
     const perms = resolveStepPermissions(STEP_B, BASE_KIT)
-    expect(perms.allowedTools).toEqual(["read", "write"])
-    expect(perms.timeout).toBe(30)
+    expect(perms.toolPermissions).toEqual({ read: "allow", write: "allow" })
   })
 
-  test("resolveStepPermissions allows step-level overrides", () => {
-    const perms = resolveStepPermissions(STEP_RESTRICTED, BASE_KIT)
-    expect(perms.allowedTools).toEqual(["read"])
-    expect(perms.networkAccess).toBe(false)
-  })
-
-  test("isToolAllowed returns true when allowedTools is empty", () => {
+  test("isToolAllowed returns true when toolPermissions is empty", () => {
     const perms = resolveStepPermissions(STEP_A, BASE_KIT)
     expect(isToolAllowed("any-tool", perms)).toBe(true)
   })
 
-  test("isToolAllowed returns true for listed tools", () => {
+  test("isToolAllowed returns true for allowed tools", () => {
     const perms = resolveStepPermissions(STEP_B, BASE_KIT)
     expect(isToolAllowed("read", perms)).toBe(true)
     expect(isToolAllowed("write", perms)).toBe(true)
   })
 
-  test("isToolAllowed returns false for unlisted tools", () => {
+  test("isToolAllowed returns true for unlisted tools (not explicitly denied)", () => {
     const perms = resolveStepPermissions(STEP_B, BASE_KIT)
+    expect(isToolAllowed("bash", perms)).toBe(true)
+  })
+
+  test("isToolAllowed returns false for denied tools", () => {
+    const kitWithDeny: Kit = {
+      id: "test-kit",
+      name: "Test Kit",
+      version: "1.0.0",
+      runtime: "opencode",
+      skills: [
+        { id: "skill-c", name: "Skill C", permissions: { bash: "deny" } },
+      ],
+    }
+    const step: WorkflowStep = { skill: "skill-c" }
+    const perms = resolveStepPermissions(step, kitWithDeny)
     expect(isToolAllowed("bash", perms)).toBe(false)
   })
 
   test("filterAllowedTools filters correctly", () => {
     const perms = resolveStepPermissions(STEP_B, BASE_KIT)
     const filtered = filterAllowedTools(["read", "write", "bash", "edit"], perms)
-    expect(filtered).toEqual(["read", "write"])
+    expect(filtered).toEqual(["read", "write", "bash", "edit"])
   })
 
   test("filterAllowedTools returns all when no restrictions", () => {
@@ -74,19 +77,9 @@ describe("permission-scope", () => {
     expect(filtered).toEqual(["read", "write", "bash"])
   })
 
-  test("isAgentAllowed returns true when allowedAgents is empty", () => {
-    const perms = resolveStepPermissions(STEP_A, BASE_KIT)
-    expect(isAgentAllowed("any-agent", perms)).toBe(true)
-  })
-
-  test("filterAllowedAgents filters correctly", () => {
-    const perms: ReturnType<typeof resolveStepPermissions> = {
-      allowedTools: [],
-      allowedAgents: ["analyst"],
-      timeout: undefined,
-      networkAccess: true,
-    }
-    const filtered = filterAllowedAgents(["analyst", "researcher", "writer"], perms)
-    expect(filtered).toEqual(["analyst"])
+  test("resolveStepPermissions handles missing skills gracefully", () => {
+    const step: WorkflowStep = { skill: "nonexistent" }
+    const perms = resolveStepPermissions(step, BASE_KIT)
+    expect(perms.toolPermissions).toEqual({})
   })
 })

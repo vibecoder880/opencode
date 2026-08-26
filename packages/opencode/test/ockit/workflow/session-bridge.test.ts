@@ -18,7 +18,7 @@ const KIT: Kit = {
   name: "Test Kit",
   version: "1.0.0",
   runtime: "opencode",
-  skills: [{ id: "skill-a", description: "Skill A" }],
+  skills: [{ id: "skill-a", name: "Skill A", description: "Skill A" }],
   agents: [],
   hooks: [],
 }
@@ -26,7 +26,7 @@ const KIT: Kit = {
 const WORKFLOW: Workflow = {
   id: "test-workflow",
   name: "Test Workflow",
-  steps: [{ run: "skill-a" }],
+  steps: [{ skill: "skill-a" }],
 }
 
 describe("session-bridge", () => {
