@@ -134,7 +134,7 @@ describe("ockit updater", () => {
     withRoot((root) =>
       installedV1(root).pipe(
         Effect.flatMap(() =>
-          update("engineer", { source: SOURCE, root, dryRun: true }).pipe(Effect.provide(clientFor(v2Handler))),
+          update("engineer", { source: SOURCE, root, dryRun: true, extract: fakeExtract(KIT_V2_FILES) }).pipe(Effect.provide(clientFor(v2Handler))),
         ),
         Effect.flatMap((summary: UpdateSummary) =>
           Effect.gen(function* () {
@@ -162,7 +162,7 @@ describe("ockit updater", () => {
             yield* Effect.promise(() =>
               fs.writeFile(path.join(root, COLLECTED_ROOT_DIR, "engineer", "skills", "plan.md"), "# user edit"),
             )
-            const summary = yield* update("engineer", { source: SOURCE, root }).pipe(
+            const summary = yield* update("engineer", { source: SOURCE, root, extract: fakeExtract(KIT_V2_FILES) }).pipe(
               Effect.provide(clientFor(v2Handler)),
             )
             expect(summary.toVersion).toBe("2.0.0")
@@ -189,7 +189,7 @@ describe("ockit updater", () => {
     withRoot((root) =>
       installedV1(root).pipe(
         Effect.flatMap(() =>
-          update("engineer", { source: SOURCE, root }).pipe(Effect.provide(clientFor(v2Handler))),
+          update("engineer", { source: SOURCE, root, extract: fakeExtract(KIT_V2_FILES) }).pipe(Effect.provide(clientFor(v2Handler))),
         ),
         Effect.flatMap(() => {
           // After update, engine.json says 2.0.0.
