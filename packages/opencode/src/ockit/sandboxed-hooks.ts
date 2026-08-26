@@ -4,7 +4,6 @@
 import { Effect, Schema } from "effect"
 import { Process } from "@/util/process"
 import type { KitHook } from "./types"
-import { resolveStepPermissions, type StepPermissions } from "./workflow/permission-scope"
 
 /** Configuration for a sandboxed hook execution. */
 export interface SandboxConfig {
@@ -12,7 +11,7 @@ export interface SandboxConfig {
   readonly workDir: string
   /** Maximum execution time in seconds. */
   readonly timeout: number
-  /** Tools allowed in the sandbox (empty = kit defaults). */
+  /** Tools allowed in the sandbox (empty = all tools). */
   readonly allowedTools?: ReadonlyArray<string>
   /** Whether to allow network access. */
   readonly networkAccess?: boolean
@@ -58,29 +57,21 @@ export const runSandboxed = Effect.fn("OCKit.sandbox.runSandboxed")(function* (
   const cfg = { ...DEFAULT_CONFIG, ...config }
   const startTime = Date.now()
 
-  // 1. Validate command against permissions
-  const permissions: StepPermissions = {
-    allowedTools: cfg.allowedTools ?? [],
-    allowedAgents: [],
-    timeout: cfg.timeout,
-    networkAccess: cfg.networkAccess ?? false,
-  }
-
-  // 2. Build environment
+  // 1. Build environment
   const env: Record<string, string> = {
     PATH: process.env.PATH ?? "/usr/bin:/bin",
     HOME: cfg.workDir,
     ...cfg.env,
   }
 
-  if (!permissions.networkAccess) {
+  if (!cfg.networkAccess) {
     // Block network access by removing proxy env vars
     delete env.HTTP_PROXY
     delete env.HTTPS_PROXY
     delete env.ALL_PROXY
   }
 
-  // 3. Run with timeout
+  // 2. Run with timeout
   const result = yield* Effect.tryPromise({
     try: async () => {
       const proc = Process.spawn(
@@ -90,14 +81,35 @@ export const runSandboxed = Effect.fn("OCKit.sandbox.runSandboxed")(function* (
           env,
           stdout: "pipe",
           stderr: "pipe",
-          timeout: cfg.timeout * 1000,
         },
       )
 
-      const [stdout, stderr] = await Promise.all([
-        new Response(proc.stdout).text().catch(() => ""),
-        new Response(proc.stderr).text().catch(() => ""),
-      ])
+      // Collect stdout and stderr as strings
+      const chunks: Buffer[] = []
+      const errChunks: Buffer[] = []
+
+      // Read from streams using async iteration
+      const reader = proc.stdout?.getReader()
+      const errReader = proc.stderr?.getReader()
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(Buffer.from(value))
+        }
+      }
+
+      if (errReader) {
+        while (true) {
+          const { done, value } = await errReader.read()
+          if (done) break
+          errChunks.push(Buffer.from(value))
+        }
+      }
+
+      const stdout = Buffer.concat(chunks).toString()
+      const stderr = Buffer.concat(errChunks).toString()
 
       const exitCode = await proc.exited
       const duration = (Date.now() - startTime) / 1000

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { Effect } from "effect"
-import { testEffect } from "../../lib/effect"
+import { Effect, Layer } from "effect"
+import { testEffect } from "../lib/effect"
 import {
   resolveDependencies,
   detectConflicts,

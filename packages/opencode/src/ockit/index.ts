@@ -30,10 +30,7 @@ export {
 
 export { Service as Registry, node as registryNode } from "./registry"
 export * as OCKitCli from "./cli"
-export * as OCKitPackager from "./packager"
-export * as OCKitVersioning from "./versioning"
-export * as OCKitPublisher from "./publisher"
 export * as OCKitDependencies from "./dependencies"
-export * as OCKitSandboxedHooks from "./sandboxed-hooks"
+export * as OCKitVersioning from "./versioning"
 export * as OCKitMarketplace from "./marketplace"
 export * as OCKitTesting from "./testing"
