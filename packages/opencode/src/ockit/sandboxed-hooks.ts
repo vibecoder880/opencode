@@ -104,7 +104,7 @@ export const runSandboxed = Effect.fn("OCKit.sandbox.runSandboxed")(function* (
       const timedOut = duration >= cfg.timeout
 
       return new SandboxResult({
-        hookId: hook.id,
+        hookId: hook.event,
         exitCode,
         stdout,
         stderr,
@@ -116,12 +116,12 @@ export const runSandboxed = Effect.fn("OCKit.sandbox.runSandboxed")(function* (
       if (String(err).includes("timed out")) {
         return new SandboxError({
           kind: "timeout",
-          detail: `Hook "${hook.id}" timed out after ${cfg.timeout}s`,
+          detail: `Hook "${hook.event}" timed out after ${cfg.timeout}s`,
         })
       }
       return new SandboxError({
         kind: "execution",
-        detail: `Hook "${hook.id}" failed: ${String(err)}`,
+        detail: `Hook "${hook.event}" failed: ${String(err)}`,
       })
     },
   })

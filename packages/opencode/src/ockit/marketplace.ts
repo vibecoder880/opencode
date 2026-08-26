@@ -10,7 +10,7 @@ export class KitSearchResult extends Schema.Class<KitSearchResult>("OCKit.KitSea
   name: Schema.String,
   version: Schema.String,
   description: Schema.String,
-  score: Schema.Number,
+  rating: Schema.Number,
   downloads: Schema.Number,
   stars: Schema.Number,
 }) {}
@@ -102,7 +102,7 @@ export function searchKits(filters: KitSearchFilters = {}): ReadonlyArray<KitSea
       case "updated":
         return 0 // Would need timestamp field
       default:
-        return b.score - a.score
+        return b.rating - a.rating
     }
   })
 
@@ -116,7 +116,7 @@ export function searchKits(filters: KitSearchFilters = {}): ReadonlyArray<KitSea
     name: k.name,
     version: k.version,
     description: k.description,
-    score: k.rating,
+    rating: k.rating,
     downloads: k.downloads,
     stars: k.stars,
   }))

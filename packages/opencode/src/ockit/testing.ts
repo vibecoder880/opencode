@@ -55,8 +55,8 @@ export function validateKitStructure(kit: Kit): Effect.Effect<void, TestError> {
   return Effect.gen(function* () {
     const result = yield* validateKit(kit)
 
-    if (!result.valid) {
-      const issues = result.issues.map((i) => `${i.path}: ${i.message}`).join(", ")
+    if (!result.ok) {
+      const issues = result.issues.map((i) => i.message).join(", ")
       return yield* Effect.fail(new TestError({
         kind: "validation",
         detail: `Kit "${kit.id}" validation failed: ${issues}`,

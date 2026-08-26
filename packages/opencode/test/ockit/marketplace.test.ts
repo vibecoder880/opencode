@@ -21,7 +21,6 @@ const KIT_A: KitMetadata = {
   downloads: 1000,
   stars: 50,
   rating: 4.5,
-  score: 4.5,
 }
 
 const KIT_B: KitMetadata = {
@@ -35,7 +34,6 @@ const KIT_B: KitMetadata = {
   downloads: 500,
   stars: 30,
   rating: 4.0,
-  score: 4.0,
 }
 
 describe("marketplace", () => {
