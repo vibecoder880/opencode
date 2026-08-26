@@ -3,6 +3,7 @@
 
 import { Effect, Schema } from "effect"
 import { Process } from "@/util/process"
+import { buffer } from "node:stream/consumers"
 import type { KitHook } from "./types"
 
 /** Configuration for a sandboxed hook execution. */
@@ -84,34 +85,16 @@ export const runSandboxed = Effect.fn("OCKit.sandbox.runSandboxed")(function* (
         },
       )
 
-      // Collect stdout and stderr as strings
-      const chunks: Buffer[] = []
-      const errChunks: Buffer[] = []
+      // Collect stdout and stderr using stream consumers
+      const [exitCode, stdoutBuf, stderrBuf] = await Promise.all([
+        proc.exited,
+        proc.stdout ? buffer(proc.stdout) : Buffer.alloc(0),
+        proc.stderr ? buffer(proc.stderr) : Buffer.alloc(0),
+      ])
 
-      // Read from streams using async iteration
-      const reader = proc.stdout?.getReader()
-      const errReader = proc.stderr?.getReader()
+      const stdout = stdoutBuf.toString()
+      const stderr = stderrBuf.toString()
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          chunks.push(Buffer.from(value))
-        }
-      }
-
-      if (errReader) {
-        while (true) {
-          const { done, value } = await errReader.read()
-          if (done) break
-          errChunks.push(Buffer.from(value))
-        }
-      }
-
-      const stdout = Buffer.concat(chunks).toString()
-      const stderr = Buffer.concat(errChunks).toString()
-
-      const exitCode = await proc.exited
       const duration = (Date.now() - startTime) / 1000
       const timedOut = duration >= cfg.timeout
 
