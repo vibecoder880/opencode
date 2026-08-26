@@ -51,7 +51,7 @@ function createRelease(
       prerelease: false,
     }
 
-    const request = HttpClientRequest.post(
+    const request = yield* HttpClientRequest.post(
       `https://api.github.com/repos/${owner}/${repo}/releases`,
     ).pipe(
       HttpClientRequest.setHeader("Accept", "application/vnd.github+json"),

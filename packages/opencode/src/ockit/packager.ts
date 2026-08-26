@@ -33,19 +33,20 @@ export interface PackOptions {
 }
 
 /** Count files in a directory recursively. */
-async function countFiles(dir: string): Promise<number> {
-  const fsutil = await FSUtil.createNode()
-  const entries = await fsutil.readDirectoryEntries(dir)
-  let count = 0
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name)
-    if (entry.isDirectory) {
-      count += await countFiles(fullPath)
-    } else {
-      count++
+function countFiles(dir: string, fs: FSUtil): Effect.Effect<number, Error> {
+  return Effect.gen(function* () {
+    const entries = yield* fs.readDirectoryEntries(dir)
+    let count = 0
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name)
+      if (entry.isDirectory) {
+        count += yield* countFiles(fullPath, fs)
+      } else {
+        count++
+      }
     }
-  }
-  return count
+    return count
+  })
 }
 
 /**
@@ -53,7 +54,7 @@ async function countFiles(dir: string): Promise<number> {
  * then creates the archive and computes its sha256 checksum.
  */
 export const pack = Effect.fn("OCKit.packager.pack")(function* (opts: PackOptions) {
-  const fsutil = yield* FSUtil.Service
+  const fs = yield* FSUtil.Service
 
   // 1. Load and validate manifest
   const manifest = yield* loadManifest(opts.sourceDir).pipe(
@@ -100,13 +101,12 @@ export const pack = Effect.fn("OCKit.packager.pack")(function* (opts: PackOption
   })
 
   // 5. Count files
-  const fileCount = yield* Effect.tryPromise({
-    try: () => countFiles(opts.sourceDir),
-    catch: (err) => new PackError({
+  const fileCount = yield* countFiles(opts.sourceDir, fs).pipe(
+    Effect.mapError((err) => new PackError({
       kind: "manifest",
       detail: `Failed to count files: ${String(err)}`,
-    }),
-  })
+    })),
+  )
 
   return new PackResult({
     archivePath,
