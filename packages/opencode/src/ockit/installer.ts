@@ -352,4 +352,4 @@ export const uninstall = Effect.fn("OCKit.install.uninstall")(function* (kitId: 
   )
 })
 
-export * as Installer from "./installer"
+export * as Installer from "./installer"// OC Kit installer — triggers CI re-run for typecheck and tests
