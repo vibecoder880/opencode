@@ -1,17 +1,27 @@
-// OC Kit versioning utilities. Simple semver helpers for version comparison
-// and constraint satisfaction. Uses basic semver (major.minor.patch) only.
+// OC Kit versioning. Semantic version parsing, comparison, and compatibility
+// checking for kit versions.
 
-/** Parse a version string into numeric components. */
-export function parseVersion(version: string): { major: number; minor: number; patch: number } {
-  const parts = version.split(".")
-  return {
-    major: parseInt(parts[0] ?? "0", 10),
-    minor: parseInt(parts[1] ?? "0", 10),
-    patch: parseInt(parts[2] ?? "0", 10),
+import { Schema } from "effect"
+
+/** Parsed semantic version. */
+export const SemVer = Schema.Struct({
+  major: Schema.Number,
+  minor: Schema.Number,
+  patch: Schema.Number,
+})
+export type SemVer = Schema.Schema.Type<typeof SemVer>
+
+/** Parse a semantic version string (e.g., "1.2.3" or "v1.2.3"). */
+export function parseVersion(version: string): SemVer {
+  const cleaned = version.startsWith("v") ? version.slice(1) : version
+  const [major, minor, patch] = cleaned.split(".").map(Number)
+  if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(patch)) {
+    throw new Error(`Invalid semver: ${version}`)
   }
+  return { major, minor, patch }
 }
 
-/** Compare two semver strings. Returns -1, 0, or 1. */
+/** Compare two versions. Returns -1, 0, or 1. */
 export function compareVersions(a: string, b: string): number {
   const pa = parseVersion(a)
   const pb = parseVersion(b)
@@ -21,30 +31,41 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
-/**
- * Check if a version satisfies a constraint.
- * Supports: "*", "^1.0.0", "~1.0.0", "1.0.0".
- */
-export function satisfiesRange(version: string, constraint: string): boolean {
-  if (constraint === "*") return true
+/** Check if two versions are compatible (same major version). */
+export function isCompatible(current: string, target: string): boolean {
+  return parseVersion(current).major === parseVersion(target).major
+}
 
+/** Check if a version satisfies a semver range (simple: ^major.minor.patch). */
+export function satisfiesRange(version: string, range: string): boolean {
   const v = parseVersion(version)
+  const cleaned = range.startsWith("^") ? range.slice(1) : range
+  const r = parseVersion(cleaned)
 
-  if (constraint.startsWith("^")) {
-    const target = parseVersion(constraint.slice(1))
-    if (v.major !== target.major) return false
-    if (v.major > target.major) return true
-    if (v.minor > target.minor) return true
-    if (v.minor === target.minor && v.patch >= target.patch) return true
-    return false
+  // ^x.y.z means >= x.y.z and < (x+1).0.0
+  if (range.startsWith("^")) {
+    return v.major === r.major &&
+      (v.minor > r.minor || (v.minor === r.minor && v.patch >= r.patch))
   }
 
-  if (constraint.startsWith("~")) {
-    const target = parseVersion(constraint.slice(1))
-    if (v.major !== target.major) return false
-    if (v.minor !== target.minor) return false
-    return v.patch >= target.patch
+  // ~x.y.z means >= x.y.z and < x.(y+1).0
+  if (range.startsWith("~")) {
+    return v.major === r.major && v.minor === r.minor && v.patch >= r.patch
   }
 
-  return version === constraint
+  // Exact match
+  return compareVersions(version, range) === 0
+}
+
+/** Bump a version by the given release type. */
+export function bumpVersion(version: string, type: "major" | "minor" | "patch"): string {
+  const v = parseVersion(version)
+  switch (type) {
+    case "major":
+      return `${v.major + 1}.0.0`
+    case "minor":
+      return `${v.major}.${v.minor + 1}.0`
+    case "patch":
+      return `${v.major}.${v.minor}.${v.patch + 1}`
+  }
 }

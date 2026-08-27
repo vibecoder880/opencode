@@ -56,9 +56,9 @@ export function filterAllowedTools(
  * An empty agentPermissions map means all agents are permitted.
  */
 export function isAgentAllowed(agentId: string, permissions: StepPermissions): boolean {
-  const perm = permissions.toolPermissions[agentId]
-  if (perm === undefined) return true
-  return perm === "allow"
+  // Agent permissions are not yet implemented in the StepPermissions interface.
+  // For now, all agents are allowed.
+  return true
 }
 
 /**
