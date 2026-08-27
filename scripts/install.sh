@@ -64,6 +64,53 @@ resolve_release() {
   fi
 }
 
+# --- Install from source (fallback) ----------------------------------------
+install_from_source() {
+  info "No release found. Installing from source..."
+  
+  if ! have git; then
+    error "git is required for source installation"
+  fi
+  
+  if ! have bun; then
+    info "Installing bun..."
+    curl -fsSL https://bun.sh/install | bash
+    export PATH="$HOME/.bun/bin:$PATH"
+  fi
+  
+  if ! have bun; then
+    error "bun installation failed"
+  fi
+  
+  CLONE_DIR="${HOME}/.opencode-src"
+  if [ -d "$CLONE_DIR" ]; then
+    info "Updating existing source..."
+    cd "$CLONE_DIR" && git pull
+  else
+    info "Cloning OpenCode..."
+    git clone https://github.com/${GITHUB_REPO}.git "$CLONE_DIR"
+  fi
+  
+  cd "$CLONE_DIR"
+  
+  info "Installing dependencies..."
+  bun install
+  
+  info "Building OpenCode..."
+  cd packages/opencode && bun run build
+  
+  # Copy binary to install directory
+  BINARY_PATH="dist/opencode-${OS}-${ARCH}/bin/opencode"
+  if [ -f "$BINARY_PATH" ]; then
+    mkdir -p "$INSTALL_DIR"
+    cp "$BINARY_PATH" "$INSTALL_DIR/opencode"
+    chmod +x "$INSTALL_DIR/opencode"
+    info "OpenCode installed to ${INSTALL_DIR}/opencode"
+  else
+    error "build failed - binary not found at ${BINARY_PATH}"
+  fi
+}
+
 # --- Main --------------------------------------------------------------------
 main() {
   OS="$(detect_os)"
@@ -79,7 +126,9 @@ main() {
   # Resolve version
   RELEASE="$(resolve_release)"
   if [ -z "$RELEASE" ]; then
-    error "could not resolve latest release"
+    warn "no release found, installing from source..."
+    install_from_source
+    return
   fi
   info "version: ${RELEASE}"
   
