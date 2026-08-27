@@ -39,7 +39,7 @@ function countFiles(dir: string, fs: FSUtil.Interface): Effect.Effect<number, Er
     let count = 0
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
-      if (entry.isDirectory) {
+      if (entry.type === "directory") {
         count += yield* countFiles(fullPath, fs)
       } else {
         count++

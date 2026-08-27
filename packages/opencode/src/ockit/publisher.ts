@@ -39,7 +39,7 @@ function createRelease(
   repo: string,
   version: string,
   changelog?: string,
-): Effect.Effect<{ uploadUrl: string; htmlUrl: string }, PublishError | HttpClient.HttpBodyError, HttpClient.HttpClient> {
+): Effect.Effect<{ uploadUrl: string; htmlUrl: string }, PublishError, HttpClient.HttpClient> {
   return Effect.gen(function* () {
     const http = yield* HttpClient.HttpClient
 
@@ -57,6 +57,10 @@ function createRelease(
       HttpClientRequest.setHeader("Accept", "application/vnd.github+json"),
       HttpClientRequest.setHeader("X-GitHub-Api-Version", "2022-11-28"),
       HttpClientRequest.bodyJson(body),
+      Effect.mapError(() => new PublishError({
+        kind: "release",
+        detail: `Failed to encode request body for v${version}`,
+      })),
     )
 
     const response = yield* http.execute(request).pipe(
