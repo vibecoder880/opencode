@@ -47,6 +47,8 @@ jobs:
         run: cd packages/opencode && bun run script/build.ts
         env:
           GH_REPO: vibecoder880/opencode
+          OPENCODE_RELEASE: "true"
+          OPENCODE_VERSION: ${{ github.ref_name }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
