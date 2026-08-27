@@ -7,43 +7,38 @@
     </picture>
   </a>
 </p>
-<p align="center">Trợ lý lập trình AI mã nguồn mở.</p>
+<p align="center">Trợ lý lập trình AI mã nguồn mở với hỗ trợ OC Kit.</p>
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/vibecoder880/opencode/actions"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/vibecoder880/opencode/typecheck.yml?style=flat-square&branch=main" /></a>
 </p>
 
 <p align="center">
   <a href="README.md">English</a> |
-  <a href="README.zh.md">简体中文</a> |
-  <a href="README.zht.md">繁體中文</a> |
-  <a href="README.ko.md">한국어</a> |
-  <a href="README.de.md">Deutsch</a> |
-  <a href="README.es.md">Español</a> |
-  <a href="README.fr.md">Français</a> |
-  <a href="README.it.md">Italiano</a> |
-  <a href="README.da.md">Dansk</a> |
-  <a href="README.ja.md">日本語</a> |
-  <a href="README.pl.md">Polski</a> |
-  <a href="README.ru.md">Русский</a> |
-  <a href="README.bs.md">Bosanski</a> |
-  <a href="README.ar.md">العربية</a> |
-  <a href="README.no.md">Norsk</a> |
-  <a href="README.br.md">Português (Brasil)</a> |
-  <a href="README.th.md">ไทย</a> |
-  <a href="README.tr.md">Türkçe</a> |
-  <a href="README.uk.md">Українська</a> |
-  <a href="README.bn.md">বাংলা</a> |
-  <a href="README.gr.md">Ελληνικά</a> |
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+---
+
+## Giới thiệu
+
+Đây là bản fork của [OpenCode](https://github.com/anomalyco/opencode) với **OC Kit** được thêm vào. OC Kit là hệ thống quản lý gói cho các AI agent, cho phép bạn cài đặt, cập nhật và quản lý các gói kỹ năng tái sử dụng.
+
+### Tính năng mới trong bản fork này
+
+- **OC Kit Package Manager** - Cài đặt, cập nhật, xác thực và quản lý các gói kỹ năng AI agent
+- **Kit Packaging & Publishing** - Tạo và phân phối OC Kit của riêng bạn
+- **Workflow Engine** - Định nghĩa và thực thi các quy trình AI đa bước
+- **Hook System** - Chạy script tùy chỉnh trên các sự kiện vòng đời
+- **Dependency Resolution** - Kit có thể phụ thuộc vào kit khác
+- **Sandboxed Execution** - Chạy hook không tin cậy trong môi trường sandbox
 
 ---
 
-### Cài đặt
+## Cài đặt
+
+### OpenCode
 
 ```bash
 # YOLO
@@ -64,16 +59,128 @@ nix run nixpkgs#opencode           # hoặc github:anomalyco/opencode cho nhánh
 > [!TIP]
 > Hãy xóa các phiên bản cũ hơn 0.1.x trước khi cài đặt.
 
-### Ứng dụng Desktop (BETA)
+### OC Kit (Bản fork này)
+
+OC Kit đã được tích hợp sẵn trong bản fork này. Sau khi cài đặt OpenCode, bạn có thể sử dụng trực tiếp các lệnh `oc kit`.
+
+#### Bắt đầu nhanh
+
+```bash
+# Liệt kê các kit đã cài
+oc kit list
+
+# Cài kit từ GitHub
+oc kit install <kit-id>
+
+# Tìm kit trên marketplace
+oc kit search <query>
+
+# Xác thực manifest kit
+oc kit validate <kit-dir-or-id>
+
+# Kiểm tra sức khỏe
+oc kit doctor
+```
+
+#### Cài đặt nhanh (Sh)
+
+```bash
+# Cài OC Kit (macOS / Linux / WSL)
+curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
+
+# Cài kit cụ thể
+OCKIT_KIT_VERSION=1.0.0 curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash -s -- engineer
+```
+
+#### Cài đặt nhanh (PowerShell)
+
+```powershell
+# Cài OC Kit (Windows)
+irm https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.ps1 | iex
+```
+
+#### Thư mục cài đặt
+
+Trình cài đặt tuân theo thứ tự ưu tiên sau:
+
+1. `$OCKIT_INSTALL_DIR` - Thư mục cài đặt tùy chỉnh
+2. `$HOME/.opencode-kits/<kit-id>` - Vị trí mặc định
+
+```bash
+# Thư mục cài đặt tùy chỉnh
+OCKIT_INSTALL_DIR=/usr/local/lib/oc-kits curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
+```
+
+---
+
+## Lệnh OC Kit
+
+| Lệnh | Mô tả |
+|-------|-------|
+| `oc kit list` | Liệt kê các kit đã cài |
+| `oc kit validate <target>` | Xác thực manifest kit |
+| `oc kit install <source>` | Cài kit từ thư mục cục bộ |
+| `oc kit update <kit-id>` | Cập nhật kit đã cài |
+| `oc kit rollback <kit-id>` | Quay lại phiên bản trước |
+| `oc kit doctor` | Kiểm tra sức khỏe các kit |
+| `oc kit pack <source>` | Tạo archive kit (.tar.gz) |
+| `oc kit publish <archive>` | Xuất bản kit lên GitHub release |
+| `oc kit search <query>` | Tìm kit trên marketplace |
+| `oc kit test <kit-id>` | Kiểm tra kit trước khi xuất bản |
+| `oc kit init` | Khởi tạo kit mới từ template |
+| `oc kit dev` | Hot reload khi phát triển kit |
+
+### Cấu trúc Manifest Kit
+
+```json
+{
+  "id": "my-kit",
+  "name": "My Kit",
+  "version": "1.0.0",
+  "description": "Một kit AI agent tùy chỉnh",
+  "min_opencode": "0.1.0",
+  "skills": ["plan", "research"],
+  "agents": ["analyst"],
+  "workflows": ["research-flow"],
+  "hooks": {
+    "pre-commit": ["validate.sh"]
+  },
+  "dependencies": {
+    "base-kit": "^1.0.0"
+  }
+}
+```
+
+### Cấu trúc thư mục Kit
+
+```
+my-kit/
+├── kit.json              # Manifest (bắt buộc)
+├── skills/               # Định nghĩa kỹ năng
+│   ├── plan.md
+│   └── research.md
+├── agents/               # Hồ sơ agent
+│   └── analyst.md
+├── workflows/            # Định nghĩa quy trình
+│   └── research.yaml
+├── hooks/                # Script hook
+│   └── pre-commit.sh
+└── artifacts/            # Artifact tĩnh
+    └── templates/
+```
+
+---
+
+## Ứng dụng Desktop (BETA)
 
 OpenCode cũng có sẵn dưới dạng ứng dụng desktop. Tải trực tiếp từ [trang releases](https://github.com/anomalyco/opencode/releases) hoặc [opencode.ai/download](https://opencode.ai/download).
 
-| Nền tảng              | Tải xuống                          |
-| --------------------- | ---------------------------------- |
-| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
-| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
-| Windows               | `opencode-desktop-windows-x64.exe` |
-| Linux                 | `.deb`, `.rpm`, hoặc AppImage      |
+| Nền tảng | Tải xuống |
+|----------|-----------|
+| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg` |
+| macOS (Intel) | `opencode-desktop-mac-x64.dmg` |
+| Windows | `opencode-desktop-windows-x64.exe` |
+| Linux | `.deb`, `.rpm`, hoặc `.AppImage` |
 
 ```bash
 # macOS (Homebrew)
@@ -82,22 +189,9 @@ brew install --cask opencode-desktop
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
 
-#### Thư mục cài đặt
+---
 
-Tập lệnh cài đặt tuân theo thứ tự ưu tiên sau cho đường dẫn cài đặt:
-
-1. `$OPENCODE_INSTALL_DIR` - Thư mục cài đặt tùy chỉnh
-2. `$XDG_BIN_DIR` - Đường dẫn tuân thủ XDG Base Directory Specification
-3. `$HOME/bin` - Thư mục nhị phân tiêu chuẩn của người dùng (nếu tồn tại hoặc có thể tạo)
-4. `$HOME/.opencode/bin` - Mặc định dự phòng
-
-```bash
-# Ví dụ
-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
-```
-
-### Agents (Đại diện)
+## Agents (Đại diện)
 
 OpenCode bao gồm hai agent được tích hợp sẵn mà bạn có thể chuyển đổi bằng phím `Tab`.
 
@@ -112,11 +206,22 @@ Agent này được sử dụng nội bộ và có thể gọi bằng cách dùn
 
 Tìm hiểu thêm về [agents](https://opencode.ai/docs/agents).
 
-### Tài liệu
+---
+
+## Tài liệu
 
 Để biết thêm thông tin về cách cấu hình OpenCode, [**hãy truy cập tài liệu của chúng tôi**](https://opencode.ai/docs).
 
-### Đóng góp
+### Tài liệu OC Kit
+
+- [Tham chiếu Manifest Kit](./packages/opencode/src/ockit/manifest.ts)
+- [Các kiểu Kit](./packages/opencode/src/ockit/types.ts)
+- [Triển khai CLI](./packages/opencode/src/ockit/cli.ts)
+- [Workflow Engine](./packages/opencode/src/ockit/workflow/)
+
+---
+
+## Đóng góp
 
 Nếu bạn muốn đóng góp cho OpenCode, vui lòng đọc [tài liệu hướng dẫn đóng góp](./CONTRIBUTING.md) trước khi gửi pull request.
 
