@@ -59,56 +59,44 @@ nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev
 > [!TIP]
 > Remove versions older than 0.1.x before installing.
 
-### OC Kit (This Fork)
+### OpenCode + OC Kit (This Fork)
 
-OC Kit is built into this fork. After installing OpenCode, you can use the `oc kit` commands directly.
+This fork includes OC Kit built-in. Install once, use everything.
 
-#### Quick Start
-
-```bash
-# List installed kits
-oc kit list
-
-# Install a kit from GitHub
-oc kit install <kit-id>
-
-# Search for kits on marketplace
-oc kit search <query>
-
-# Validate a kit manifest
-oc kit validate <kit-dir-or-id>
-
-# Get health report
-oc kit doctor
-```
-
-#### Single-Command Install (Sh)
+#### Quick Install
 
 ```bash
-# Install OC Kit (macOS / Linux / WSL)
+# macOS / Linux / WSL
 curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
 
-# Install specific kit
-OCKIT_KIT_VERSION=1.0.0 curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash -s -- engineer
+# Windows (PowerShell)
+powershell -c "irm https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.ps1 | iex"
 ```
 
-#### Single-Command Install (PowerShell)
-
-```powershell
-# Install OC Kit (Windows)
-irm https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.ps1 | iex
+Then run:
+```bash
+opencode
 ```
 
-#### Installation Directory
-
-The installer respects the following priority order:
-
-1. `$OCKIT_INSTALL_DIR` - Custom installation directory
-2. `$HOME/.opencode-kits/<kit-id>` - Default location
+#### Alternative: npm
 
 ```bash
-# Custom install directory
-OCKIT_INSTALL_DIR=/usr/local/lib/oc-kits curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
+npm install -g https://github.com/vibecoder880/opencode/releases/latest/download/opencode.tgz
+```
+
+#### What You Get
+
+After installation, you have everything:
+
+```bash
+opencode                    # Start OpenCode with OC Kit
+opencode kit list           # List installed kits
+opencode kit install <id>   # Install a kit
+opencode kit validate       # Validate a kit
+opencode kit doctor         # Check kit health
+opencode kit update         # Update kits
+opencode kit pack           # Create kit archive
+opencode kit publish        # Publish to GitHub
 ```
 
 ---

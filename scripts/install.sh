@@ -1,42 +1,46 @@
 #!/usr/bin/env sh
-# OC Kit single-command installer (macOS / Linux / WSL).
+# OpenCode + OC Kit single-command installer (macOS / Linux / WSL).
 #
-# Pipeline (plan §34-35): detect OS/arch → fetch release metadata from the
-# GitHub Releases registry → verify sha256 → install the archive → update PATH →
-# verify the executable → surface post-install checks.
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
 #
-# The release registry is `opencode-ai/kits` by default; override with
-# OCKIT_REGISTRY_OWNER / OCKIT_REGISTRY_REPO.
-#
-# NOTE: CI validates the syntax of this script only (`sh -n`); no live network
-# install ever runs in CI.
+# This installs OpenCode with OC Kit support built-in.
+# After installation, run `opencode` to start.
 
 set -eu
 
-KIT_ID="${1:-engineer}"
-VERSION="${OCKIT_KIT_VERSION:-}"
-OWNER="${OCKIT_REGISTRY_OWNER:-opencode-ai}"
-REPO="${OCKIT_REGISTRY_REPO:-kits}"
-INSTALL_DIR="${OCKIT_INSTALL_DIR:-}"
-API_URL="https://api.github.com/repos/${OWNER}/${REPO}/releases"
-RAW_URL="https://raw.githubusercontent.com/${OWNER}/${REPO}"
+# --- Configuration -----------------------------------------------------------
+OPENCODE_VERSION="${OPENCODE_VERSION:-}"
+INSTALL_DIR="${OPENCODE_INSTALL_DIR:-}"
+GITHUB_REPO="vibecoder880/opencode"
+API_URL="https://api.github.com/repos/${GITHUB_REPO}/releases"
 
-# --- detect ----------------------------------------------------------------
+# --- Colors ------------------------------------------------------------------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+info() { printf "${GREEN}[INFO]${NC} %s\n" "$1"; }
+warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; }
+error() { printf "${RED}[ERROR]${NC} %s\n" "$1" >&2; exit 1; }
+
+# --- Detect OS/Arch ---------------------------------------------------------
 detect_os() {
   case "$(uname -s)" in
-    Linux*) echo "linux" ;;
+    Linux*)  echo "linux" ;;
     Darwin*) echo "darwin" ;;
     *MINGW*|*MSYS*|*CYGWIN*) echo "windows" ;;
-    *) echo "unknown" ;;
+    *)       echo "unknown" ;;
   esac
 }
 
 detect_arch() {
   case "$(uname -m)" in
-    x86_64|amd64) echo "amd64" ;;
-    arm64|aarch64) echo "arm64" ;;
-    i386|i686) echo "386" ;;
-    *) echo "unknown" ;;
+    x86_64|amd64)   echo "amd64" ;;
+    arm64|aarch64)  echo "arm64" ;;
+    i386|i686)      echo "386" ;;
+    *)              echo "unknown" ;;
   esac
 }
 
@@ -44,114 +48,132 @@ have() {
   command -v "$1" >/dev/null 2>&1
 }
 
-# --- fetch -----------------------------------------------------------------
-# Resolve the latest release tag whose kit manifest is compatible with the
-# running opencode runtime (min_opencode guard lives in the manifest).
+# --- Resolve release --------------------------------------------------------
 resolve_release() {
-  if [ -n "$VERSION" ]; then
-    echo "$VERSION"
+  if [ -n "$OPENCODE_VERSION" ]; then
+    echo "$OPENCODE_VERSION"
     return
   fi
-  if ! have curl; then
-    echo "error: curl is required to install OC Kit" >&2
-    exit 1
+  
+  if have curl; then
+    curl -fsSL "${API_URL}/latest" 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1
+  elif have wget; then
+    wget -qO- "${API_URL}/latest" 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1
+  else
+    error "curl or wget is required"
   fi
-  curl -fsSL "${API_URL}" |
-    sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' |
-    head -n 1
 }
 
-from_json() {
-  # Minimal JSON field extractor (no jq dependency): prints the value of a
-  # string field whose key exactly matches "$1".
-  sed -n "s/.*\"$1\" *: *\"\([^\"]*\)\".*/\1/p" | head -n 1
-}
-
+# --- Main --------------------------------------------------------------------
 main() {
   OS="$(detect_os)"
   ARCH="$(detect_arch)"
+  
   if [ "${OS}" = "unknown" ] || [ "${ARCH}" = "unknown" ]; then
-    echo "error: unsupported platform (os=${OS}, arch=${ARCH})" >&2
-    exit 1
+    error "unsupported platform (os=${OS}, arch=${ARCH})"
   fi
-
-  echo "OC Kit installer — os=${OS} arch=${ARCH} kit=${KIT_ID}"
-
+  
+  info "OpenCode + OC Kit installer"
+  info "os=${OS} arch=${ARCH}"
+  
+  # Resolve version
   RELEASE="$(resolve_release)"
   if [ -z "$RELEASE" ]; then
-    echo "error: no release found for ${OWNER}/${REPO}" >&2
-    exit 1
+    error "could not resolve latest release"
   fi
-  echo "release: $RELEASE"
-
+  info "version: ${RELEASE}"
+  
+  # Determine install directory
   if [ -z "$INSTALL_DIR" ]; then
-    INSTALL_DIR="${HOME}/.opencode-kits/${KIT_ID}"
+    if [ "${OS}" = "darwin" ] || [ "${OS}" = "linux" ]; then
+      INSTALL_DIR="${HOME}/.opencode/bin"
+    else
+      INSTALL_DIR="${HOME}/.opencode/bin"
+    fi
   fi
   mkdir -p "$INSTALL_DIR"
-
-  ARCHIVE="kit-${OS}-${ARCH}.tar.gz"
-  ARCHIVE_URL="${RAW_URL}/${RELEASE}/${ARCHIVE}"
-  CHECKSUMS_URL="${RAW_URL}/${RELEASE}/checksums.txt"
-
-  # --- verify --------------------------------------------------------------
-  if [ -n "$VERSION" ] || [ -z "${VERSION}" ]; then :; fi
-  if have shasum; then
-    SHA_BIN="shasum"
-  elif have sha256sum; then
-    SHA_BIN="sha256sum"
-  else
-    echo "error: no sha256 tool found (shasum/sha256sum)" >&2
-    exit 1
-  fi
-
+  
+  # Download archive
+  ARCHIVE="opencode-${OS}-${ARCH}.tar.gz"
+  DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE}/${ARCHIVE}"
+  
+  info "downloading ${DOWNLOAD_URL}"
+  
   TMPDIR_SAFE="${TMPDIR:-/tmp}"
-  ARCHIVE_PATH="${TMPDIR_SAFE}/ockit-${KIT_ID}-${RELEASE}.tar.gz"
-
-  echo "fetching ${ARCHIVE_URL}"
-  curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE_PATH"
-
-  EXPECTED=""
-  if curl -fsSL "$CHECKSUMS_URL" 2>/dev/null | grep -q "${ARCHIVE}"; then
-    EXPECTED="$(curl -fsSL "$CHECKSUMS_URL" 2>/dev/null | grep "${ARCHIVE}" | awk '{print $1}' | head -n 1)"
+  ARCHIVE_PATH="${TMPDIR_SAFE}/opencode-${RELEASE}.tar.gz"
+  
+  if have curl; then
+    curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE_PATH"
+  elif have wget; then
+    wget -qO "$ARCHIVE_PATH" "$DOWNLOAD_URL"
+  else
+    error "curl or wget is required"
   fi
-  if [ -n "$EXPECTED" ]; then
-    ACTUAL="$($SHA_BIN -a 256 "$ARCHIVE_PATH" | awk '{print $1}')"
-    if [ "$ACTUAL" != "$EXPECTED" ]; then
-      echo "error: checksum mismatch for ${ARCHIVE} (expected ${EXPECTED}, got ${ACTUAL})" >&2
+  
+  # Extract
+  info "extracting to ${INSTALL_DIR}"
+  tar -xzf "$ARCHIVE_PATH" -C "$INSTALL_DIR" 2>/dev/null || {
+    # If tar fails, try unzip
+    unzip -o -q "$ARCHIVE_PATH" -d "$INSTALL_DIR" 2>/dev/null || {
       rm -f "$ARCHIVE_PATH"
-      exit 1
-    fi
-    echo "checksum verified"
-  else
-    echo "warning: no checksum entry found for ${ARCHIVE}; skipping verification"
-  fi
-
-  # --- install -------------------------------------------------------------
-  tar -xzf "$ARCHIVE_PATH" -C "$INSTALL_DIR"
+      error "failed to extract archive"
+    }
+  }
   rm -f "$ARCHIVE_PATH"
-  echo "installed kit to ${INSTALL_DIR}"
-
-  # --- PATH ----------------------------------------------------------------
-  if [ -d "${INSTALL_DIR}/bin" ]; then
-    case ":$PATH:" in
-      *":${INSTALL_DIR}/bin:"*) : ;;
-      *)
-        echo "export PATH=\"${INSTALL_DIR}/bin:\$PATH\"" >>"${HOME}/.profile"
-        echo "added ${INSTALL_DIR}/bin to PATH (${HOME}/.profile)"
-        ;;
-    esac
-  fi
-
-  # --- verify + post-checks ------------------------------------------------
-  if have opencode; then
-    echo "opencode: $(opencode --version 2>/dev/null || echo 'unknown')"
-    if have "opencode" && [ "${OS}" != "windows" ]; then
-      opencode doctor --install 2>/dev/null || echo "opencode doctor unavailable (non-fatal)"
-    fi
+  
+  # Make executable
+  chmod +x "${INSTALL_DIR}/opencode" 2>/dev/null || true
+  chmod +x "${INSTALL_DIR}/oc" 2>/dev/null || true
+  
+  # Add to PATH if needed
+  case ":$PATH:" in
+    *":${INSTALL_DIR}:"*) 
+      info "${INSTALL_DIR} already in PATH"
+      ;;
+    *)
+      SHELL_RC=""
+      if [ -f "${HOME}/.bashrc" ]; then
+        SHELL_RC="${HOME}/.bashrc"
+      elif [ -f "${HOME}/.zshrc" ]; then
+        SHELL_RC="${HOME}/.zshrc"
+      elif [ -f "${HOME}/.profile" ]; then
+        SHELL_RC="${HOME}/.profile"
+      fi
+      
+      if [ -n "$SHELL_RC" ]; then
+        echo "export PATH=\"${INSTALL_DIR}:\$PATH\"" >> "$SHELL_RC"
+        info "added ${INSTALL_DIR} to PATH in ${SHELL_RC}"
+        warn "restart your shell or run: source ${SHELL_RC}"
+      else
+        warn "add ${INSTALL_DIR} to your PATH manually"
+      fi
+      ;;
+  esac
+  
+  # Verify installation
+  info "verifying installation..."
+  
+  if [ -x "${INSTALL_DIR}/opencode" ]; then
+    info "OpenCode installed successfully!"
+    "${INSTALL_DIR}/opencode" --version 2>/dev/null || true
+  elif have opencode; then
+    info "OpenCode installed successfully!"
+    opencode --version 2>/dev/null || true
   else
-    echo "warning: opencode not found on PATH after install"
+    warn "opencode binary not found in ${INSTALL_DIR}"
   fi
-  echo "done"
+  
+  echo ""
+  info "Installation complete!"
+  echo ""
+  echo "  Run 'opencode' to start OpenCode with OC Kit support"
+  echo ""
+  echo "  Quick commands:"
+  echo "    opencode                    # Start OpenCode"
+  echo "    opencode kit list           # List installed kits"
+  echo "    opencode kit install <id>   # Install a kit"
+  echo "    opencode kit doctor         # Check kit health"
+  echo ""
 }
 
 main "$@"

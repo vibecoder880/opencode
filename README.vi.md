@@ -59,56 +59,44 @@ nix run nixpkgs#opencode           # hoặc github:anomalyco/opencode cho nhánh
 > [!TIP]
 > Hãy xóa các phiên bản cũ hơn 0.1.x trước khi cài đặt.
 
-### OC Kit (Bản fork này)
+### OpenCode + OC Kit (Bản fork này)
 
-OC Kit đã được tích hợp sẵn trong bản fork này. Sau khi cài đặt OpenCode, bạn có thể sử dụng trực tiếp các lệnh `oc kit`.
+Bản fork này đã tích hợp sẵn OC Kit. Cài một lần, dùng mọi thứ.
 
-#### Bắt đầu nhanh
-
-```bash
-# Liệt kê các kit đã cài
-oc kit list
-
-# Cài kit từ GitHub
-oc kit install <kit-id>
-
-# Tìm kit trên marketplace
-oc kit search <query>
-
-# Xác thực manifest kit
-oc kit validate <kit-dir-or-id>
-
-# Kiểm tra sức khỏe
-oc kit doctor
-```
-
-#### Cài đặt nhanh (Sh)
+#### Cài đặt nhanh
 
 ```bash
-# Cài OC Kit (macOS / Linux / WSL)
+# macOS / Linux / WSL
 curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
 
-# Cài kit cụ thể
-OCKIT_KIT_VERSION=1.0.0 curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash -s -- engineer
+# Windows (PowerShell)
+powershell -c "irm https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.ps1 | iex"
 ```
 
-#### Cài đặt nhanh (PowerShell)
-
-```powershell
-# Cài OC Kit (Windows)
-irm https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.ps1 | iex
+Sau đó chạy:
+```bash
+opencode
 ```
 
-#### Thư mục cài đặt
-
-Trình cài đặt tuân theo thứ tự ưu tiên sau:
-
-1. `$OCKIT_INSTALL_DIR` - Thư mục cài đặt tùy chỉnh
-2. `$HOME/.opencode-kits/<kit-id>` - Vị trí mặc định
+#### Cách khác: npm
 
 ```bash
-# Thư mục cài đặt tùy chỉnh
-OCKIT_INSTALL_DIR=/usr/local/lib/oc-kits curl -fsSL https://raw.githubusercontent.com/vibecoder880/opencode/main/scripts/install.sh | bash
+npm install -g https://github.com/vibecoder880/opencode/releases/latest/download/opencode.tgz
+```
+
+#### Bạn nhận được gì
+
+Sau khi cài đặt, bạn có mọi thứ:
+
+```bash
+opencode                    # Chạy OpenCode voi OC Kit
+opencode kit list           # Liệt kê cac kit da cai
+opencode kit install <id>   # Cai kit
+opencode kit validate       # Xac thuc kit
+opencode kit doctor         # Kiem tra suc khoe kit
+opencode kit update         # Cap nhat kit
+opencode kit pack           # Tao archive kit
+opencode kit publish        # Xuat ban len GitHub
 ```
 
 ---
