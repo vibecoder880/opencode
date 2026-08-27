@@ -52,7 +52,7 @@ jobs:
           SKIP_RELEASE_UPLOAD: "true"
 
       - name: Create GitHub Release
-        uses: softprop/action-gh-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.tar.gz
