@@ -36,6 +36,7 @@ export {
   SessionBridgeError,
   type SessionWorkflowRun,
 } from "./session-bridge"
+export * as PermissionScope from "./permission-scope"
 export {
   resolveStepPermissions,
   isToolAllowed,
