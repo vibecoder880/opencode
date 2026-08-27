@@ -188,7 +188,7 @@ export const installKit = Effect.fn("Cli.kit.install")(function* (args: InstallA
   process.stdout.write(
     `  skills:${kit.skills?.length ?? 0} agents:${kit.agents?.length ?? 0} workflows:${kit.workflows?.length ?? 0} hooks:${kit.hooks?.length ?? 0}` + EOL,
   )
-}).pipe(Effect.catchAll((err) => new CliError({ message: String(err) })))
+})
 
 const InstallCommand = effectCmd({
   command: "install <source>",
@@ -205,7 +205,10 @@ const InstallCommand = effectCmd({
         description: "install into a specific project directory instead of global",
       }),
   handler: (args) =>
-    installKit({ source: args.source, project: args.project }).pipe(Effect.provide(registryLayer)),
+    installKit({ source: args.source, project: args.project }).pipe(
+      Effect.catchAll((err: unknown) => new CliError({ message: String(err) })),
+      Effect.provide(registryLayer),
+    ),
 })
 
 // ── Update command ────────────────────────────────────────────────────────────
@@ -296,7 +299,7 @@ export const updateKit = Effect.fn("Cli.kit.update")(function* (args: UpdateArgs
   process.stdout.write(
     `Updated kit "${existing.id}" from ${existing.version} to ${newKit.version}` + EOL,
   )
-}).pipe(Effect.catchAll((err) => new CliError({ message: String(err) })))
+})
 
 const UpdateCommand = effectCmd({
   command: "update <kit-id>",
@@ -305,15 +308,18 @@ const UpdateCommand = effectCmd({
     yargs
       .positional("kit-id", {
         type: "string",
-        description: "kit id to update",
+        description: "id of the installed kit to update",
         demandOption: true,
       })
       .option("source", {
         type: "string",
-        description: "new source directory to update from",
+        description: "path to new kit version directory",
       }),
   handler: (args) =>
-    updateKit({ kitId: args["kit-id"], source: args.source }).pipe(Effect.provide(registryLayer)),
+    updateKit({ kitId: args["kit-id"], source: args.source }).pipe(
+      Effect.catchAll((err: unknown) => new CliError({ message: String(err) })),
+      Effect.provide(registryLayer),
+    ),
 })
 
 // ── Rollback command ──────────────────────────────────────────────────────────
