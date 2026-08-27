@@ -12,8 +12,8 @@ const BASE_KIT: Kit = {
   version: "1.0.0",
   runtime: "opencode",
   skills: [
-    { id: "skill-a", name: "Skill A", description: "Skill A" },
-    { id: "skill-b", name: "Skill B", description: "Skill B", permissions: { read: "allow", write: "allow" } },
+    { id: "skill-a", description: "Skill A" },
+    { id: "skill-b", description: "Skill B", permissions: { read: "allow", write: "allow" } },
   ],
   agents: [],
   hooks: [],
@@ -57,7 +57,7 @@ describe("permission-scope", () => {
       version: "1.0.0",
       runtime: "opencode",
       skills: [
-        { id: "skill-c", name: "Skill C", permissions: { bash: "deny" } },
+        { id: "skill-c", permissions: { bash: "deny" } },
       ],
     }
     const step: WorkflowStep = { skill: "skill-c" }

@@ -51,4 +51,24 @@ export function filterAllowedTools(
   return tools.filter((t) => isToolAllowed(t, permissions))
 }
 
+/**
+ * Check if a specific agent is allowed in the current step context.
+ * An empty agentPermissions map means all agents are permitted.
+ */
+export function isAgentAllowed(agentId: string, permissions: StepPermissions): boolean {
+  const perm = permissions.toolPermissions[agentId]
+  if (perm === undefined) return true
+  return perm === "allow"
+}
+
+/**
+ * Filter a list of agent IDs to only those allowed by the current permissions.
+ */
+export function filterAllowedAgents(
+  agents: ReadonlyArray<string>,
+  permissions: StepPermissions,
+): ReadonlyArray<string> {
+  return agents.filter((a) => isAgentAllowed(a, permissions))
+}
+
 export * as PermissionScope from "./permission-scope"

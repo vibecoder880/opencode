@@ -18,14 +18,13 @@ const KIT: Kit = {
   name: "Test Kit",
   version: "1.0.0",
   runtime: "opencode",
-  skills: [{ id: "skill-a", name: "Skill A", description: "Skill A" }],
+  skills: [{ id: "skill-a", description: "Skill A" }],
   agents: [],
   hooks: [],
 }
 
 const WORKFLOW: Workflow = {
   id: "test-workflow",
-  name: "Test Workflow",
   steps: [{ skill: "skill-a" }],
 }
 
