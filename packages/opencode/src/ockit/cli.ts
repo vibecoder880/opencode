@@ -206,9 +206,8 @@ const InstallCommand = effectCmd({
       }),
   handler: (args) =>
     installKit({ source: args.source, project: args.project }).pipe(
-      Effect.catchAll((err: unknown) => new CliError({ message: String(err) })),
       Effect.provide(registryLayer),
-    ),
+    ) as Effect.Effect<void, CliError>,
 })
 
 // ── Update command ────────────────────────────────────────────────────────────
@@ -317,9 +316,8 @@ const UpdateCommand = effectCmd({
       }),
   handler: (args) =>
     updateKit({ kitId: args["kit-id"], source: args.source }).pipe(
-      Effect.catchAll((err: unknown) => new CliError({ message: String(err) })),
       Effect.provide(registryLayer),
-    ),
+    ) as Effect.Effect<void, CliError>,
 })
 
 // ── Rollback command ──────────────────────────────────────────────────────────
