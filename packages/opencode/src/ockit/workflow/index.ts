@@ -27,3 +27,20 @@ export {
   type RunOptions,
   type RunResult,
 } from "./runner"
+export {
+  triggerWorkflow,
+  triggerAndReport,
+  getSessionRuns,
+  getSessionRun,
+  clearSessionRuns,
+  SessionBridgeError,
+  type SessionWorkflowRun,
+} from "./session-bridge"
+export {
+  resolveStepPermissions,
+  isToolAllowed,
+  isAgentAllowed,
+  filterAllowedTools,
+  filterAllowedAgents,
+  type StepPermissions,
+} from "./permission-scope"
