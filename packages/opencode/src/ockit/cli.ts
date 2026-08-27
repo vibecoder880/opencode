@@ -188,7 +188,7 @@ export const installKit = Effect.fn("Cli.kit.install")(function* (args: InstallA
   process.stdout.write(
     `  skills:${kit.skills?.length ?? 0} agents:${kit.agents?.length ?? 0} workflows:${kit.workflows?.length ?? 0} hooks:${kit.hooks?.length ?? 0}` + EOL,
   )
-})
+}).pipe(Effect.catchAll((err) => new CliError({ message: String(err) })))
 
 const InstallCommand = effectCmd({
   command: "install <source>",
@@ -296,7 +296,7 @@ export const updateKit = Effect.fn("Cli.kit.update")(function* (args: UpdateArgs
   process.stdout.write(
     `Updated kit "${existing.id}" from ${existing.version} to ${newKit.version}` + EOL,
   )
-})
+}).pipe(Effect.catchAll((err) => new CliError({ message: String(err) })))
 
 const UpdateCommand = effectCmd({
   command: "update <kit-id>",
