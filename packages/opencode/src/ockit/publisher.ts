@@ -39,7 +39,7 @@ function createRelease(
   repo: string,
   version: string,
   changelog?: string,
-): Effect.Effect<{ uploadUrl: string; htmlUrl: string }, PublishError, HttpClient.HttpClient> {
+): Effect.Effect<{ uploadUrl: string; htmlUrl: string }, PublishError | HttpClient.HttpBodyError, HttpClient.HttpClient> {
   return Effect.gen(function* () {
     const http = yield* HttpClient.HttpClient
 
@@ -124,7 +124,12 @@ export const publish = Effect.fn("OCKit.publisher.publish")(function* (opts: Pub
   const checksum = Hash.sha256(Buffer.from(content))
 
   // 2. Create release
-  const release = yield* createRelease(opts.owner, opts.repo, opts.version, opts.changelog)
+  const release = yield* createRelease(opts.owner, opts.repo, opts.version, opts.changelog).pipe(
+    Effect.mapError((err) => new PublishError({
+      kind: "release",
+      detail: err instanceof PublishError ? err.detail : `Failed to create release: ${String(err)}`,
+    })),
+  )
 
   // 3. Upload archive
   const archiveName = path.basename(opts.archivePath)
@@ -136,8 +141,12 @@ export const publish = Effect.fn("OCKit.publisher.publish")(function* (opts: Pub
     try: async () => {
       const proc = Process.spawn(
         ["gh", "api", release.uploadUrl.replace("{?name,label}", `?name=checksums.txt`), "--method", "POST", "--header", "Content-Type: text/plain", "--input", "-"],
-        { stdin: checksumsContent, stdout: "ignore", stderr: "pipe" },
+        { stdin: "pipe", stdout: "ignore", stderr: "pipe" },
       )
+      if (proc.stdin) {
+        proc.stdin.write(checksumsContent)
+        proc.stdin.end()
+      }
       await proc.exited
     },
     catch: () => new PublishError({ kind: "checksum", detail: "Failed to upload checksums" }),

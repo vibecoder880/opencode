@@ -33,7 +33,7 @@ export interface PackOptions {
 }
 
 /** Count files in a directory recursively. */
-function countFiles(dir: string, fs: FSUtil): Effect.Effect<number, Error> {
+function countFiles(dir: string, fs: FSUtil.Interface): Effect.Effect<number, Error> {
   return Effect.gen(function* () {
     const entries = yield* fs.readDirectoryEntries(dir)
     let count = 0
