@@ -61,13 +61,13 @@ interface ManifestChecksum {
 }
 
 /** Required fields that must be present in a valid manifest. */
-const REQUIRED_MANIFEST_FIELDS = ["id", "name", "version", "description"]
+const REQUIRED_MANIFEST_FIELDS = ["id", "name", "version"]
 
 /** Fields that should not change after initial validation. */
-const IMMUTABLE_MANIFEST_FIELDS = ["id", "type", "engine"]
+const IMMUTABLE_MANIFEST_FIELDS = ["id"]
 
 /** Fields that can be updated but require version bump. */
-const VERSIONED_MANIFEST_FIELDS = ["skills", "workflows", "agents", "hooks", "dependencies"]
+const VERSIONED_MANIFEST_FIELDS = ["skills", "workflows", "agents", "hooks"]
 
 // ── Detection functions ─────────────────────────────────────────────────────
 
@@ -112,13 +112,12 @@ export function computeManifestChecksum(kit: Kit): ManifestChecksum {
     name: kit.name,
     version: kit.version,
     description: kit.description,
-    type: kit.type,
-    engine: kit.engine,
+    runtime: kit.runtime,
+    min_opencode: kit.min_opencode,
     skills: kit.skills,
     workflows: kit.workflows,
     agents: kit.agents,
     hooks: kit.hooks,
-    dependencies: kit.dependencies,
   })
 
   // Simple hash computation (in production, use crypto.createHash)

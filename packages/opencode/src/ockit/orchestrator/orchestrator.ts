@@ -151,7 +151,7 @@ export const orchestrate = Effect.fn("OCKit.orchestrator.orchestrate")(function*
     }
   }
 
-  const workflow = routing.workflow
+  const workflow = routing.workflow!
 
   // ── Step 3: Assign agents per step ───────────────────────────────────
   const agents = assignAgents(workflow, kitIndex)

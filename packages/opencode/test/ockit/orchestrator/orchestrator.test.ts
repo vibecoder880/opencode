@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Effect } from "effect"
+import { Cause, Effect, Exit } from "effect"
 import { orchestrate, preview, OrchestratorError } from "../../../src/ockit/orchestrator/orchestrator"
 import type { Kit } from "../../../src/ockit/types"
 import type { StepExecutor } from "../../../src/ockit/workflow/runner"
@@ -97,18 +97,19 @@ describe("orchestrator.orchestrate", () => {
   })
 
   test("returns error for empty kit with no workflows", async () => {
-    const result = await Effect.runPromise(
+    const exit = await Effect.runPromiseExit(
       orchestrate({
         request: "fix the bug",
         kit: EMPTY_KIT,
         executor: noopExecutor,
-      }).pipe(Effect.either),
+      }),
     )
 
-    expect(result._tag).toBe("Left")
-    if (result._tag === "Left") {
-      expect(result.left).toBeInstanceOf(OrchestratorError)
-      expect(result.left.kind).toBe("no-workflow")
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const error = Cause.squash(exit.cause)
+      expect(error).toBeInstanceOf(OrchestratorError)
+      expect((error as OrchestratorError).kind).toBe("no-workflow")
     }
   })
 

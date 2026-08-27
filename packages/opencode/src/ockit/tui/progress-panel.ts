@@ -5,14 +5,14 @@
 
 import type { Kit, Workflow, WorkflowStep } from "../types"
 import type { StepOutcome, WorkflowRunRecord } from "../workflow"
-import type { WorkflowState } from "../workflow/state"
+import type { WorkflowState } from "../types"
 
 /** Snapshot of the workflow progress for rendering. */
 export interface ProgressSnapshot {
   /** The kit this workflow belongs to. */
   readonly kit: { readonly id: string; readonly name: string; readonly version: string }
   /** Workflow metadata. */
-  readonly workflow: { readonly id: string; readonly name: string }
+  readonly workflow: { readonly id: string; readonly description: string }
   /** Current run state. */
   readonly state: WorkflowState
   /** Total number of steps in the workflow. */
@@ -94,7 +94,7 @@ export function buildProgressSnapshot(
 
   return {
     kit: { id: kit.id, name: kit.name, version: kit.version },
-    workflow: { id: workflow.id, name: workflow.name },
+    workflow: { id: workflow.id, description: workflow.description ?? workflow.id },
     state: record.state ?? "blocked",
     totalSteps,
     completedSteps,
@@ -113,7 +113,7 @@ export function formatProgress(snapshot: ProgressSnapshot): string {
   const { kit, workflow, state, percent, completedSteps, failedSteps, totalSteps, steps } = snapshot
 
   lines.push(`Kit: ${kit.name}@${kit.version}`)
-  lines.push(`Workflow: ${workflow.name}`)
+  lines.push(`Workflow: ${workflow.description}`)
   lines.push(`State: ${state}`)
   lines.push(`Progress: ${percent}% (${completedSteps}/${totalSteps} steps, ${failedSteps} failed)`)
   lines.push("")

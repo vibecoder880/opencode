@@ -8,11 +8,11 @@
 // 3. Manipulated agent prompts that bypass safety checks
 // 4. Encoded/obfuscated malicious content in descriptions
 
-import type { Kit, Skill, Workflow, WorkflowStep } from "../types"
+import type { Kit, KitSkill, Workflow, WorkflowStep } from "../types"
 
 /** A detected prompt injection vector. */
 export interface PromptInjectionVector {
-  /** Location of the vector (e.g., "skill:code-gen.prompt", "step:review.instruction"). */
+  /** Location of the vector (e.g., "skill:code-gen.description"). */
   readonly location: string
   /** Type of injection attempt. */
   readonly type: PromptInjectionType
@@ -108,6 +108,11 @@ export function auditPromptInjection(kit: Kit): PromptInjectionReport {
     auditWorkflowSteps(kit.id, workflow, vectors)
   }
 
+  // Audit agent definitions.
+  for (const agent of kit.agents ?? []) {
+    auditAgentPrompt(kit.id, agent, vectors)
+  }
+
   return {
     kitId: kit.id,
     vectorCount: vectors.length,
@@ -119,24 +124,17 @@ export function auditPromptInjection(kit: Kit): PromptInjectionReport {
 
 function auditSkillPrompt(
   kitId: string,
-  skill: Skill,
+  skill: KitSkill,
   vectors: PromptInjectionVector[],
 ): void {
-  const fields = [
-    { name: "prompt", value: skill.prompt },
-    { name: "instruction", value: skill.instruction },
-    { name: "description", value: skill.description },
-  ]
-
-  for (const field of fields) {
-    if (!field.value) continue
-    const location = `skill:${skill.id}.${field.name}`
-
-    checkSystemOverride(location, field.value, vectors)
-    checkRoleManipulation(location, field.value, vectors)
-    checkEncodedPayload(location, field.value, vectors)
-    checkDelimiterEscape(location, field.value, vectors)
-    checkNestedInstruction(location, field.value, vectors)
+  // Audit the skill description for prompt injection patterns.
+  if (skill.description) {
+    const location = `skill:${skill.id}.description`
+    checkSystemOverride(location, skill.description, vectors)
+    checkRoleManipulation(location, skill.description, vectors)
+    checkEncodedPayload(location, skill.description, vectors)
+    checkDelimiterEscape(location, skill.description, vectors)
+    checkNestedInstruction(location, skill.description, vectors)
   }
 }
 
@@ -149,13 +147,36 @@ function auditWorkflowSteps(
     const stepKey = step.as ?? step.skill
     const location = `step:${workflow.id}.${stepKey}`
 
-    // Check step-level instruction overrides.
-    if (step.instruction) {
-      checkSystemOverride(location, step.instruction, vectors)
-      checkRoleManipulation(location, step.instruction, vectors)
-      checkEncodedPayload(location, step.instruction, vectors)
-      checkDelimiterEscape(location, step.instruction, vectors)
-    }
+    // WorkflowStep only has { skill, as? } — both are identifiers/references,
+    // not user-facing content. No prompt injection surface here.
+    // Audit is intentionally a no-op for workflow steps.
+    void location
+  }
+}
+
+function auditAgentPrompt(
+  kitId: string,
+  agent: { id: string; role?: string; description?: string },
+  vectors: PromptInjectionVector[],
+): void {
+  // Audit the agent role for prompt injection patterns.
+  if (agent.role) {
+    const location = `agent:${agent.id}.role`
+    checkSystemOverride(location, agent.role, vectors)
+    checkRoleManipulation(location, agent.role, vectors)
+    checkEncodedPayload(location, agent.role, vectors)
+    checkDelimiterEscape(location, agent.role, vectors)
+    checkNestedInstruction(location, agent.role, vectors)
+  }
+
+  // Audit the agent description for prompt injection patterns.
+  if (agent.description) {
+    const location = `agent:${agent.id}.description`
+    checkSystemOverride(location, agent.description, vectors)
+    checkRoleManipulation(location, agent.description, vectors)
+    checkEncodedPayload(location, agent.description, vectors)
+    checkDelimiterEscape(location, agent.description, vectors)
+    checkNestedInstruction(location, agent.description, vectors)
   }
 }
 

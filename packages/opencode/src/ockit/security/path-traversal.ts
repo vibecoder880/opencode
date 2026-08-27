@@ -8,11 +8,11 @@
 // 3. Symlink attacks that point outside the kit
 // 4. URL-based file access that bypasses directory restrictions
 
-import type { Kit, Skill, Workflow, WorkflowStep } from "../types"
+import type { Kit, KitSkill, Workflow, WorkflowStep } from "../types"
 
 /** A detected path traversal vector. */
 export interface PathTraversalVector {
-  /** Location of the vector (e.g., "skill:code-gen.path", "step:build.command"). */
+  /** Location of the vector (e.g., "skill:code-gen.agent", "step:build.skill"). */
   readonly location: string
   /** Type of traversal attempt. */
   readonly type: PathTraversalType
@@ -114,27 +114,22 @@ export function auditPathTraversal(kit: Kit): PathTraversalReport {
 
 function auditSkillPaths(
   kitId: string,
-  skill: Skill,
+  skill: KitSkill,
   vectors: PathTraversalVector[],
 ): void {
-  // Check skill path references.
-  const pathFields = [
-    { name: "path", value: skill.path },
-    { name: "entry", value: skill.entry },
-    { name: "source", value: skill.source },
-  ]
-
-  for (const field of pathFields) {
-    if (!field.value) continue
-    const location = `skill:${skill.id}.${field.name}`
-    checkPath(location, field.value, vectors)
+  // Audit the skill agent reference (could reference a file path).
+  if (skill.agent) {
+    checkPath(`skill:${skill.id}.agent`, skill.agent, vectors)
   }
 
-  // Check skill dependencies for path references.
-  for (const dep of skill.dependencies ?? []) {
-    if (typeof dep === "string") {
-      checkPath(`skill:${skill.id}.dependencies`, dep, vectors)
-    }
+  // Audit tool references for path-like strings.
+  for (const tool of skill.tools ?? []) {
+    checkPath(`skill:${skill.id}.tools`, tool, vectors)
+  }
+
+  // Audit artifact paths.
+  for (const artifact of skill.artifacts ?? []) {
+    checkPath(`skill:${skill.id}.artifacts`, artifact, vectors)
   }
 }
 
@@ -146,14 +141,12 @@ function auditWorkflowPaths(
   for (const step of workflow.steps) {
     const stepKey = step.as ?? step.skill
 
-    // Check step command paths.
-    if (step.command) {
-      checkPath(`step:${workflow.id}.${stepKey}.command`, step.command, vectors)
-    }
+    // Audit the skill reference name for path-like strings.
+    checkPath(`step:${workflow.id}.${stepKey}.skill`, step.skill, vectors)
 
-    // Check step script paths.
-    if (step.script) {
-      checkPath(`step:${workflow.id}.${stepKey}.script`, step.script, vectors)
+    // Audit the step alias for path-like strings.
+    if (step.as) {
+      checkPath(`step:${workflow.id}.${stepKey}.as`, step.as, vectors)
     }
   }
 }

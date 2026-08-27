@@ -21,7 +21,7 @@ export interface PermissionSnapshot {
   /** Kit metadata. */
   readonly kit: { readonly id: string; readonly name: string; readonly version: string }
   /** Workflow metadata. */
-  readonly workflow: { readonly id: string; readonly name: string }
+  readonly workflow: { readonly id: string; readonly description: string }
   /** Step key this snapshot applies to. */
   readonly stepKey: string
   /** Skill id for this step. */
@@ -80,13 +80,8 @@ export function buildPermissionSnapshot(
     return a.id.localeCompare(b.id)
   })
 
-  // Agent permissions: check if the step has agent restrictions.
+  // Agent permissions: WorkflowStep has no agent field, so entries stay empty.
   const agentEntries: PermissionEntry[] = []
-  if (step.agents && step.agents.length > 0) {
-    for (const agentId of step.agents) {
-      agentEntries.push({ id: agentId, access: "allow", source: "step-override" })
-    }
-  }
 
   const allowedToolCount = toolEntries.filter((e) => e.access === "allow").length
   const deniedToolCount = toolEntries.filter((e) => e.access === "deny").length
@@ -94,7 +89,7 @@ export function buildPermissionSnapshot(
 
   return {
     kit: { id: kit.id, name: kit.name, version: kit.version },
-    workflow: { id: workflow.id, name: workflow.name },
+    workflow: { id: workflow.id, description: workflow.description ?? workflow.id },
     stepKey: step.as ?? step.skill,
     skill: step.skill,
     tools: toolEntries,
@@ -111,7 +106,7 @@ export function formatPermissions(snapshot: PermissionSnapshot): string {
   const { kit, workflow, stepKey, skill, tools, agents, allToolsAllowed } = snapshot
 
   lines.push(`Kit: ${kit.name}@${kit.version}`)
-  lines.push(`Workflow: ${workflow.name}`)
+  lines.push(`Workflow: ${workflow.description}`)
   lines.push(`Step: ${stepKey} [${skill}]`)
   lines.push("")
 

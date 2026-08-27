@@ -35,7 +35,7 @@ export interface ArtifactSnapshot {
   /** Kit metadata. */
   readonly kit: { readonly id: string; readonly name: string; readonly version: string }
   /** Workflow metadata. */
-  readonly workflow: { readonly id: string; readonly name: string }
+  readonly workflow: { readonly id: string; readonly description: string }
   /** Run id. */
   readonly runId: string
   /** All artifacts. */
@@ -69,7 +69,7 @@ export function buildArtifactSnapshot(
 
   return {
     kit: { id: kit.id, name: kit.name, version: kit.version },
-    workflow: { id: workflow.id, name: workflow.name },
+    workflow: { id: workflow.id, description: workflow.description ?? workflow.id },
     runId,
     artifacts,
     byType: byType as ReadonlyMap<ArtifactType, ReadonlyArray<Artifact>>,
@@ -84,7 +84,7 @@ export function formatArtifacts(snapshot: ArtifactSnapshot): string {
   const { kit, workflow, artifacts, totalCount, totalSize } = snapshot
 
   lines.push(`Kit: ${kit.name}@${kit.version}`)
-  lines.push(`Workflow: ${workflow.name}`)
+  lines.push(`Workflow: ${workflow.description}`)
   lines.push(`Run: ${workflow.id}`)
   lines.push(`Artifacts: ${totalCount} (${formatSize(totalSize)})`)
   lines.push("")

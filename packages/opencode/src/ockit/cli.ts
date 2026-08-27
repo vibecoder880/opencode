@@ -9,6 +9,8 @@
 
 import type { Argv } from "yargs"
 import { EOL } from "os"
+import path from "path"
+import * as NFS from "fs/promises"
 import { Effect } from "effect"
 import { cmd } from "../cli/cmd/cmd"
 import { CliError, effectCmd, fail } from "../cli/effect-cmd"
@@ -177,7 +179,7 @@ export const installKit = Effect.fn("Cli.kit.install")(function* (args: InstallA
     ? path.join(args.project, ".opencode", "kits", kit.id)
     : path.join(dirs[0] ?? path.join(process.env.HOME ?? "~", ".opencode", "kits"), kit.id)
 
-  yield* fs.mkdir(targetDir, { recursive: true })
+  yield* fs.ensureDir(targetDir)
   yield* fs.copy(args.source, targetDir)
 
   process.stdout.write(
@@ -287,8 +289,8 @@ export const updateKit = Effect.fn("Cli.kit.update")(function* (args: UpdateArgs
   const dirs = yield* registry.dirs()
   const targetDir = path.join(dirs[0] ?? path.join(process.env.HOME ?? "~", ".opencode", "kits"), existing.id)
 
-  yield* fs.rm(targetDir, { recursive: true, force: true })
-  yield* fs.mkdir(targetDir, { recursive: true })
+  yield* Effect.tryPromise(() => NFS.rm(targetDir, { recursive: true, force: true }))
+  yield* fs.ensureDir(targetDir)
   yield* fs.copy(args.source, targetDir)
 
   process.stdout.write(
@@ -311,7 +313,7 @@ const UpdateCommand = effectCmd({
         description: "new source directory to update from",
       }),
   handler: (args) =>
-    updateKit({ kitId: args.kitId, source: args.source }).pipe(Effect.provide(registryLayer)),
+    updateKit({ kitId: args["kit-id"], source: args.source }).pipe(Effect.provide(registryLayer)),
 })
 
 // ── Rollback command ──────────────────────────────────────────────────────────
@@ -384,7 +386,7 @@ const RollbackCommand = effectCmd({
         description: "target version to rollback to",
       }),
   handler: (args) =>
-    rollbackKit({ kitId: args.kitId, version: args.version }).pipe(Effect.provide(registryLayer)),
+    rollbackKit({ kitId: args["kit-id"], version: args.version }).pipe(Effect.provide(registryLayer)),
 })
 
 // ── Doctor command ────────────────────────────────────────────────────────────
@@ -430,7 +432,7 @@ export const doctorKit = Effect.fn("Cli.kit.doctor")(function* (args: DoctorArgs
       for (const issue of result.issues) {
         diagnostics.push({
           kitId: kit.id,
-          status: issue.severity === "error" ? "error" : "warning",
+          status: "error",
           message: `${issue.kind} "${issue.id}": ${issue.message}`,
         })
       }
@@ -455,7 +457,7 @@ export const doctorKit = Effect.fn("Cli.kit.doctor")(function* (args: DoctorArgs
         for (const issue of result.issues) {
           diagnostics.push({
             kitId: kit.id,
-            status: issue.severity === "error" ? "error" : "warning",
+            status: "error",
             message: `${issue.kind} "${issue.id}": ${issue.message}`,
           })
         }
@@ -500,7 +502,7 @@ const DoctorCommand = effectCmd({
       description: "specific kit id to check (checks all if omitted)",
     }),
   handler: (args) =>
-    doctorKit({ kitId: args.kitId }).pipe(Effect.provide(registryLayer)),
+    doctorKit({ kitId: args["kit-id"] }).pipe(Effect.provide(registryLayer)),
 })
 
 export const OCKitCommand = cmd({
