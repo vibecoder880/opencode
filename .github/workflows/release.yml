@@ -55,8 +55,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*.tar.gz
-            dist/*.zip
+            packages/opencode/dist/*.tar.gz
+            packages/opencode/dist/*.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
